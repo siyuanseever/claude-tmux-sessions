@@ -384,9 +384,15 @@ for rng, icon, count, colour in ((blocked_range, "⏸︎", len(blocked), "#ff5f5
     # ⏸ 非零时加粗：它是这四块里唯一「要你动手」的那一块，颜色之外再给一档轻重。
     weight = ",bold" if count and icon == "⏸︎" else ""
     chip = f"#[fg={colour if count else ZERO}{weight}]{icon} {count}"
+    # 两块之间那两个空格要分给左右各一个，一起包进范围里：范围只圈住 `✔ 7` 这三格的话，
+    # 每块左右各有两格死区，点偏一格 tmux 就找不到用户范围，退回 MouseDown1StatusLeft —— 
+    # 那条绑定是 CLAUDE_TMUX_MODE=session 的全量 picker，于是「点 ✔ 弹出所有 Claude」
+    # （2026-10-08 用户报：「有时候我点击 done 的图标，但会弹出来所有的 claude，
+    # 好像是 session 对应的界面」）。画出来一模一样，空格没有字形。
+    pad = ("" if not parts else " ") + chip + (" " if icon != "✓︎" else "")
     # 归零的 ⏸ 没有可跳的窗格，所以不发范围 —— 点它什么也不会发生，而不是点到
     # 一个指向空处的动作。
-    parts.append(f"#[range=user|{rng}]{chip}#[norange]" if rng else chip + "#[default]")
+    parts.append(f"#[range=user|{rng}]{pad}#[norange]" if rng else pad + "#[default]")
 
 if parts:
     # A trailing plain space in quota mode too, although that half sits at
@@ -394,5 +400,5 @@ if parts:
     # column (the window rarely divides into whole cells) in the last cell's
     # background. Ending on the 7d cooldown cell, that margin came out as a
     # third blue bar next to it.
-    print("  ".join(parts) + "#[default] ")
+    print("".join(parts) + "#[default] ")    # 每块自带了半边间隔，直接接起来就是原来的两格
 PYEOF
