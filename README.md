@@ -350,7 +350,8 @@ floating pane downward).
 
 Each window is two cells, drawn the same way so their heights can be
 compared. The first is usage, in yellow: it grows up from the bottom (▁ → █). The second is how much of the window has elapsed, in blue, growing up
-from the bottom too — ▁ just after it opened, █ about to reset. Usage taller
+from the bottom too — ▁ just after it opened, █ about to reset. Both sit on a
+grey track, so the grey left above a bar is how far it is from 100%. Usage taller
 than time means you're burning faster than the window refills. `status-badge.sh states` / `status-badge.sh quota`
 print the two halves separately, so the Claude states can sit next to the
 session name on the left and the quota at the far right. Clicking the quota

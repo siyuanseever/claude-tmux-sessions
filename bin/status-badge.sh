@@ -255,6 +255,11 @@ GAUGE = "▁▂▃▄▅▆▇█"
 # 一上一下没法比 —— 用户原话：「我没有办法去比较我的平均用量是否已经超过了限额刷新时间」。
 WINDOW_SECS = {"5h": 5 * 3600, "7d": 7 * 86400}
 TIME_DONE = "#0087d7"       # 深蓝：窗口里已经过去的部分，从下往上长
+# 两根柱子共用的槽：格子底色，柱子没长到的那截就露出灰色，一眼看出离 100% 还差多少。
+# 以前不带底色，柱顶上面和状态栏一样黑，看得出高低、看不出满格在哪（用户 2026-10-07：
+# 「我只能看到它的高低，但是我看不到它离 100% 还差多少」）。两根必须同一个底色 ——
+# 只给一根加的话它看上去总是满格，没法比高度。
+TRACK = "#3a3a3a"
 
 
 def level(frac, n):
@@ -268,9 +273,8 @@ def time_left_glyph(label, dt):
     left = (dt - datetime.now().astimezone()).total_seconds()
     waiting = max(0.0, min(1.0, left / WINDOW_SECS.get(label, 5 * 3600)))
     elapsed = 1.0 - waiting                    # 窗口已经走过的比例
-    # 和用量柱同一个 level()：两根一样高，就真的是「用掉的比例 = 走过的比例」。
-    # 不带背景色，也和用量柱一致 —— 给一根加底色会让它看上去总是满格，没法比高度。
-    return f"#[fg={TIME_DONE}]{GAUGE[level(elapsed, len(GAUGE))]}#[default]"
+    # 和用量柱同一个 level()、同一个 TRACK 底色：两根一样高，就真的是「用掉的比例 = 走过的比例」。
+    return f"#[fg={TIME_DONE},bg={TRACK}]{GAUGE[level(elapsed, len(GAUGE))]}#[default]"
 
 
 def window_segment(label, w, with_reset=False):
@@ -289,7 +293,7 @@ def window_segment(label, w, with_reset=False):
     if dt is not None and dt <= datetime.now().astimezone():
         # The window this reading belongs to has already rolled over.
         return f"#[fg=#585858]{label}{g}#[default]"
-    return (f"#[fg=#6c6c6c]{label}#[fg={USED}]{g}"
+    return (f"#[fg=#6c6c6c]{label}#[fg={USED},bg={TRACK}]{g}#[default]"
             f"{time_left_glyph(label, dt)}#[default]")
 
 
