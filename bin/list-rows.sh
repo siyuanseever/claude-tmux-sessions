@@ -144,22 +144,39 @@ members_by_pane = teams_snap["by_pane"] if teams_snap else {}
 _acct_cache = {}
 
 
-def acct_tag(cfg):
-    """@claude_config → 行里那一小格，默认账号是空串。"""
+ACCT_W = 4             # 账号列：两个字母加一个分隔空格，撑得下 l2 / l3 这种
+
+
+def acct_name(cfg):
+    """@claude_config → 列里那两个字。默认账号是空串。
+
+    用的是配置目录名去掉 ".claude-" 的那一截（~/.claude-l2 → l2）——那是他自己给这张卡
+    起的名字，短，而且两个账号的邮箱前缀只差一个字符（siyuan.l / siyuan.l2），在一个
+    两三格宽的列里分不出来。"""
     if not cfg:
         return ""
     if cfg not in _acct_cache:
-        name = ""
-        try:
-            with open(os.path.join(cfg, ".claude.json")) as fh:
-                name = ((json.load(fh).get("oauthAccount") or {}).get("emailAddress") or "").split("@")[0]
-        except Exception:
-            name = os.path.basename(cfg.rstrip("/")).lstrip(".")   # 读不到就退回目录名
-        _acct_cache[cfg] = f" \033[38;5;110m{name}\033[0m" if name else ""
+        base = os.path.basename(cfg.rstrip("/"))
+        name = base[len(".claude-"):] if base.startswith(".claude-") else base.lstrip(".")
+        _acct_cache[cfg] = name[:ACCT_W - 1]
     return _acct_cache[cfg]
 
 
+def acct_cell(pane, plain=False):
+    """账号列。这台机器上只有一个账号在用的时候整列不出现，行和以前一字不差。
+    plain 给整行都是暗色的那种行用：带颜色会把后面的文字提前从暗色里拉出来。"""
+    if not acct_col_on:
+        return ""
+    name = acct_name(cfg_of.get(pane, ""))
+    if not name:
+        return col("", ACCT_W)
+    # 先排版再上色：col() 按显示宽度算，不剥 ANSI，把带颜色的串交给它会被当成
+    # 超长内容截成 ".."（第一版就是这么坏的）。
+    return col(name, ACCT_W) if plain else f"\033[38;5;110m{col(name, ACCT_W)}\033[0m"
+
+
 cfg_of = {}            # 窗格 → 它那个 Claude 的 CLAUDE_CONFIG_DIR
+acct_col_on = False    # 有窗格用着非默认账号才开那一列
 task_of = {}
 if bin_dir and os.path.isdir(os.path.join(_claude_home, "projects")):
     try:
@@ -181,6 +198,8 @@ for line in out.splitlines():
     parts = line.split("\t")
     if len(parts) == 8:
         live[parts[0]] = parts
+# 有窗格用着非默认账号，才值得为它单开一列
+acct_col_on = any(p[7] for p in live.values())
 
 # Session display order follows tmux's own session_id (creation order —
 # the same stable order tmux itself lists sessions in), not "most urgent
@@ -894,10 +913,11 @@ for s in sessions_sorted:
                     + col(fmt_age(1, age), AGE_W)
                     # 这一行整条都是暗的，所以队员格也走无色版本，不然它自带的
                     # \033[0m 会把后面的文字提前从暗色里拉出来。
+                    + acct_cell(pane, plain=True)
                     + mate_cell(member, plain=True) + (trailing or tilde(cwd)))
             display = (f"  \033[2m{'' if is_mate else row_num:>3}  "
                        + (" " * MATE_INDENT if is_mate else "")
-                       + body + "\033[0m" + acct_tag(cfg_of.get(pane, "")))
+                       + body + "\033[0m")
         else:
             display = (
                 num
@@ -905,11 +925,11 @@ for s in sessions_sorted:
                 + "  "
                 + name_cell
                 + col(fmt_age(rank, age), AGE_W)
+                + acct_cell(pane)
                 # 队员格在 dim 的外面：它自带颜色，包进 \033[2m 里那串 \033[0m
                 # 会把后面的自由文本提前从暗色里拉出来。
                 + mate_cell(member)
                 + "\033[2m" + (trailing or tilde(cwd)) + "\033[0m"
-                + acct_tag(cfg_of.get(pane, ""))
             )
         # Field 4 is what skip-header.sh matches typed digits against, so a
         # teammate leaves it empty: no number in the gutter, no number to
