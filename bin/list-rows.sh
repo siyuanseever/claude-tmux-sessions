@@ -137,6 +137,29 @@ members_by_pane = teams_snap["by_pane"] if teams_snap else {}
 # worth making, and why it costs one transcript read per session ever).
 # Gated on the same kind of one stat as teams and chosen names: no
 # projects directory, no import, no byte read, rows come out as before.
+# 哪个账号开的。两个账号可以同时在线（claude / claude2，CLAUDE_CONFIG_DIR 各指一个目录），
+# ctx_to_tmux.py 把目录写在窗格的 @claude_config 上。只标**非默认**那个：绝大多数窗格是默认
+# 账号，全标一遍等于每行都多一格废话，而少数用第二个账号的那几行一眼就要能挑出来。没开过第二个
+# 账号的人一个字都看不到，行还是原样。
+_acct_cache = {}
+
+
+def acct_tag(cfg):
+    """@claude_config → 行里那一小格，默认账号是空串。"""
+    if not cfg:
+        return ""
+    if cfg not in _acct_cache:
+        name = ""
+        try:
+            with open(os.path.join(cfg, ".claude.json")) as fh:
+                name = ((json.load(fh).get("oauthAccount") or {}).get("emailAddress") or "").split("@")[0]
+        except Exception:
+            name = os.path.basename(cfg.rstrip("/")).lstrip(".")   # 读不到就退回目录名
+        _acct_cache[cfg] = f" \033[38;5;110m{name}\033[0m" if name else ""
+    return _acct_cache[cfg]
+
+
+cfg_of = {}            # 窗格 → 它那个 Claude 的 CLAUDE_CONFIG_DIR
 task_of = {}
 if bin_dir and os.path.isdir(os.path.join(_claude_home, "projects")):
     try:
@@ -147,7 +170,7 @@ if bin_dir and os.path.isdir(os.path.join(_claude_home, "projects")):
         task_of = {}           # a broken read means "no tasks", never a broken list
 
 fmt = ("#{pane_id}\t#{session_name}\t#{window_index}\t#{window_name}"
-       "\t#{pane_index}\t#{pane_current_path}\t#{pane_title}")
+       "\t#{pane_index}\t#{pane_current_path}\t#{pane_title}\t#{@claude_config}")
 try:
     out = subprocess.check_output(["tmux", "list-panes", "-a", "-F", fmt], text=True)
 except Exception:
@@ -156,7 +179,7 @@ except Exception:
 live = {}
 for line in out.splitlines():
     parts = line.split("\t")
-    if len(parts) == 7:
+    if len(parts) == 8:
         live[parts[0]] = parts
 
 # Session display order follows tmux's own session_id (creation order —
@@ -467,7 +490,10 @@ for pane, e in eff.items():
     # this list agree.
     if pane not in live or e.get("archived"):
         continue
-    _, session, win_idx, window_name, pane_idx, cwd, pane_title = live[pane]
+    _, session, win_idx, window_name, pane_idx, cwd, pane_title, cfg = live[pane]
+    # 行是在底下另一个循环里拼的（它遍历 entries，手上只有 pane），所以这里按 pane 记一笔。
+    # 别图省事直接在那边用 cfg：那是这个循环留下的最后一个值，每行都会拿到同一个账号。
+    cfg_of[pane] = cfg
     member = members_by_pane.get(pane)
     if member:
         teams_in_session[session].add(member["team"])
@@ -871,7 +897,7 @@ for s in sessions_sorted:
                     + mate_cell(member, plain=True) + (trailing or tilde(cwd)))
             display = (f"  \033[2m{'' if is_mate else row_num:>3}  "
                        + (" " * MATE_INDENT if is_mate else "")
-                       + body + "\033[0m")
+                       + body + "\033[0m" + acct_tag(cfg_of.get(pane, "")))
         else:
             display = (
                 num
@@ -883,6 +909,7 @@ for s in sessions_sorted:
                 # 会把后面的自由文本提前从暗色里拉出来。
                 + mate_cell(member)
                 + "\033[2m" + (trailing or tilde(cwd)) + "\033[0m"
+                + acct_tag(cfg_of.get(pane, ""))
             )
         # Field 4 is what skip-header.sh matches typed digits against, so a
         # teammate leaves it empty: no number in the gutter, no number to
