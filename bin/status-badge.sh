@@ -28,7 +28,15 @@ BIN_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 #   status-badge.sh states    WAIT / ✔ / ▶ only
 #   status-badge.sh quota     5h / 7d only — skips the prune, so running
 #                             both halves doesn't prune twice per refresh
+#
+# quota takes a second argument: the config dir of the Claude in the current
+# pane (tmux expands #{@claude_config}, which ctx_to_tmux.py writes on the
+# pane). Two accounts can be signed in at once — `claude` and `claude2` — and
+# each has its own quota, so the bar has to show the one belonging to the pane
+# you are looking at. Empty (not a Claude pane, or the default account) means
+# ~/.claude, exactly as before.
 MODE="${1:-all}"
+CFG="${2:-}"
 if [ "$MODE" != quota ]; then
   if [ -s "$STATUS_FILE" ]; then
     python3 "$BIN_DIR/../hooks/tmux_status_update.py" prune 2>/dev/null || true
@@ -37,7 +45,7 @@ if [ "$MODE" != quota ]; then
   fi
 fi
 
-MODE="$MODE" BIN_DIR="$BIN_DIR" python3 - "$STATUS_FILE" <<'PYEOF'
+MODE="$MODE" BIN_DIR="$BIN_DIR" CLAUDE_CFG="$CFG" python3 - "$STATUS_FILE" <<'PYEOF'
 import json, os, sys, subprocess, time, unicodedata
 from datetime import datetime
 
@@ -159,7 +167,14 @@ for pane, e in data.items():
 # moment an instance on another account touches ~/.claude.json — so with
 # claude-use l1/l2 alternating, the cache keeps vanishing. We mirror the
 # last good reading here so the bar survives those wipes.
-QUOTA_CACHE = os.path.expanduser("~/.claude/tmux-quota-cache.json")
+# Which account's quota this render is about: the config dir of the Claude in
+# the current pane, or the default one. Everything below reads per config dir —
+# Claude Code's own cache lives in <cfg>/.claude.json (in the home dir for the
+# default one), and usage-refresh.py writes its LIVE_FILE next to it.
+DEFAULT_CFG = os.path.expanduser("~/.claude")
+CFG = os.path.expanduser(os.environ.get("CLAUDE_CFG") or DEFAULT_CFG).rstrip("/") or DEFAULT_CFG
+CONF_JSON = os.path.expanduser("~/.claude.json") if CFG == DEFAULT_CFG else os.path.join(CFG, ".claude.json")
+QUOTA_CACHE = os.path.join(CFG, "tmux-quota-cache.json")
 
 
 def quota_bar(pct, colour, empty="#585858"):
@@ -190,22 +205,22 @@ def reset_suffix(resets_at):
     return f" #[fg=#8a8a8a]↻{dt.strftime(fmt)}#[default]", dt
 
 
-LIVE_FILE = os.path.expanduser("~/.claude/tmux-usage-live.json")
+LIVE_FILE = os.path.join(CFG, "tmux-usage-live.json")
 REFRESH = os.path.join(os.environ.get("BIN_DIR", ""), "usage-refresh.py")
 
 
 def usage_now():
     """The freshest usage reading we have, as {window: {utilization,
     resets_at}} plus fetched_at_ms. Two sources, newest wins:
-      - Claude Code's own cache (cachedUsageUtilization in ~/.claude.json),
-        updated whenever Claude Code fetches — e.g. when you run /usage;
+      - Claude Code's own cache (cachedUsageUtilization in this account's
+        .claude.json), updated whenever Claude Code fetches — e.g. /usage;
       - usage-refresh.py's LIVE_FILE, updated every 30 min in the background
         and on a click on the quota segment.
     The older QUOTA_CACHE snapshot (5h only) is the last resort, for when
     both are gone."""
     best = None
     try:
-        cached = json.load(open(os.path.expanduser("~/.claude.json"))).get("cachedUsageUtilization") or {}
+        cached = json.load(open(CONF_JSON)).get("cachedUsageUtilization") or {}
         util = cached.get("utilization") or {}
         if (util.get("five_hour") or {}).get("utilization") is not None:
             best = {"five_hour": util.get("five_hour"), "seven_day": util.get("seven_day") or {},
@@ -238,7 +253,7 @@ def maybe_refresh(best):
     age = time.time() - ((best or {}).get("fetched_at_ms") or 0) / 1000
     if age > interval and os.path.exists(REFRESH):
         try:
-            subprocess.Popen([sys.executable, REFRESH], stdin=subprocess.DEVNULL,
+            subprocess.Popen([sys.executable, REFRESH, "--config", CFG], stdin=subprocess.DEVNULL,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                              start_new_session=True)
         except Exception:

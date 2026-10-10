@@ -5,6 +5,12 @@
     usage-refresh.py --force    refresh now (the status-bar click)
     usage-refresh.py --notify [--client C]   a card on client C: the last numbers at once,
                                               the new ones when the request returns
+    usage-refresh.py --config ~/.claude-l2   that account instead of the default one
+
+Two accounts can be signed in at once (CLAUDE_CONFIG_DIR picks which; see
+`claude2` in dotfiles), each with its own quota. Everything here is per config
+dir: the credentials it reads, the LIVE_FILE it writes, the throttle. The
+default dir keeps the paths it always had, so nothing moves for a single account.
 
 Why this exists: the status bar used to read only Claude Code's own cache
 (cachedUsageUtilization in ~/.claude.json), which moves when Claude Code
@@ -15,7 +21,10 @@ it is the newer of the two.
 
 What it touches, deliberately little:
   - reads the OAuth access token Claude Code keeps (macOS Keychain item
-    "Claude Code-credentials", or ~/.claude/.credentials.json elsewhere).
+    "Claude Code-credentials" for the default config dir, and
+    "Claude Code-credentials-<first 8 of sha256(config dir)>" for any other —
+    that is how Claude Code itself names them; or <config dir>/.credentials.json
+    where there is no Keychain).
     The token is used in memory for this one request and never written or
     printed anywhere.
   - never *refreshes* the token. An expired token just means "no new
@@ -33,6 +42,7 @@ minutes (default 30), counting failed attempts too, so a broken token never
 turns into a request every 10 seconds of status-interval.
 """
 import fcntl
+import hashlib
 import json
 import os
 import subprocess
@@ -42,7 +52,11 @@ import urllib.error
 import urllib.request
 
 HOME = os.path.expanduser("~")
-LIVE_FILE = os.path.join(HOME, ".claude", "tmux-usage-live.json")
+DEFAULT_CFG = os.path.join(HOME, ".claude")
+CFG = os.path.expanduser(
+    sys.argv[sys.argv.index("--config") + 1] if "--config" in sys.argv
+    else os.environ.get("CLAUDE_CONFIG_DIR") or DEFAULT_CFG).rstrip("/") or DEFAULT_CFG
+LIVE_FILE = os.path.join(CFG, "tmux-usage-live.json")
 LOCK_FILE = LIVE_FILE + ".lock"
 URL = "https://api.anthropic.com/api/oauth/usage"
 INTERVAL = 60 * int(os.environ.get("CLAUDE_TMUX_USAGE_REFRESH_MIN") or 30)
@@ -66,11 +80,21 @@ def save(obj):
     os.replace(tmp, LIVE_FILE)
 
 
+def keychain_service():
+    """The Keychain item holding this config dir's credentials. Claude Code names the
+    default one "Claude Code-credentials" and every other one with the first 8 hex of
+    sha256 over the directory path as written (no trailing slash), so two accounts
+    signed in at once don't overwrite each other."""
+    if CFG == DEFAULT_CFG:
+        return "Claude Code-credentials"
+    return "Claude Code-credentials-" + hashlib.sha256(CFG.encode()).hexdigest()[:8]
+
+
 def token():
     raw = ""
     try:
         r = subprocess.run(
-            ["security", "find-generic-password", "-s", "Claude Code-credentials", "-w"],
+            ["security", "find-generic-password", "-s", keychain_service(), "-w"],
             capture_output=True, text=True, timeout=5)
         if r.returncode == 0:
             raw = r.stdout
@@ -78,7 +102,7 @@ def token():
         pass
     if not raw:
         try:
-            with open(os.path.join(HOME, ".claude", ".credentials.json")) as f:
+            with open(os.path.join(CFG, ".credentials.json")) as f:
                 raw = f.read()
         except Exception:
             return None, "找不到 Claude Code 的登录凭据"
@@ -225,6 +249,8 @@ def main():
     notify = "--notify" in sys.argv
     now_ms = int(time.time() * 1000)
     card = None
+    if not os.path.isdir(CFG):
+        return          # no such config dir — nobody is signed in there, nothing to refresh
 
     with open(LOCK_FILE, "w") as lock:
         try:
