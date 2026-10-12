@@ -37,6 +37,9 @@ BIN_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 # ~/.claude, exactly as before.
 MODE="${1:-all}"
 CFG="${2:-}"
+# states 模式的第三个参数：只数这个 tmux session 里的窗格（tmux 传 #{session_name}）。
+# 空 = 数全部，跟以前一样。只看当前 session，别的 session 的 WAIT / DONE 不进计数、也不抢状态栏。
+SCOPE="${3:-}"
 if [ "$MODE" != quota ]; then
   if [ -s "$STATUS_FILE" ]; then
     python3 "$BIN_DIR/../hooks/tmux_status_update.py" prune 2>/dev/null || true
@@ -45,7 +48,7 @@ if [ "$MODE" != quota ]; then
   fi
 fi
 
-MODE="$MODE" BIN_DIR="$BIN_DIR" CLAUDE_CFG="$CFG" python3 - "$STATUS_FILE" <<'PYEOF'
+MODE="$MODE" BIN_DIR="$BIN_DIR" CLAUDE_CFG="$CFG" SCOPE_SESSION="$SCOPE" python3 - "$STATUS_FILE" <<'PYEOF'
 import json, os, sys, subprocess, time, unicodedata
 from datetime import datetime
 
@@ -61,17 +64,20 @@ except Exception:
 # still shows correctly), same as the picker does.
 try:
     out = subprocess.check_output(
-        ["tmux", "list-panes", "-a", "-F", "#{pane_id}\t#{window_name}\t#{window_id}"],
+        ["tmux", "list-panes", "-a", "-F", "#{pane_id}\t#{window_name}\t#{window_id}\t#{session_name}"],
         text=True)
 except Exception:
     out = ""
 win_of = {}
+sess_of = {}
 win_id_of = {}          # 给 effective_status 认领队用：窗口 id 是唯一的，窗口名不是
 for line in out.splitlines():
     p = line.split("\t")
-    if len(p) == 3:
+    if len(p) == 4:
         win_of[p[0]] = p[1]
         win_id_of[p[0]] = p[2]
+        sess_of[p[0]] = p[3]
+scope = os.environ.get("SCOPE_SESSION", "")
 live = set(win_of)
 
 
@@ -142,6 +148,10 @@ for pane, e in data.items():
         continue
     status = e.get("status", "running")
     age = int(now - e.get("updated_at", now))
+    # 只数当前 session —— 但 ⏸ 例外：别的 session 里有人在等你确认是唯一会卡住你的事，
+    # 不能因为专注当前 session 就看不到（用户 2026-10-12 要求改回去）。
+    if scope and sess_of.get(pane) != scope and not (status == "blocked" and not e.get("read")):
+        continue
     # blocked respects `read` too: jumping to a blocked pane (prefix a /
     # the picker, both call mark-read) is how you dismiss its alert, so an
     # already-visited one shouldn't keep sounding the banner. A fresh

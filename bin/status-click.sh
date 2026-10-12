@@ -21,5 +21,5 @@ range="${1:-}"; pane="${2:-}"; client="${3:-}"
 case "$range" in
   quota)        exec "$BIN_DIR/usage-refresh.py" --force --notify --client "$client" ;;
   w%*)          exec "$BIN_DIR/jump-top.sh" "${range#w}" ;;
-  done|running|read) CLAUDE_TMUX_USAGE_FOOTER=0 exec "$BIN_DIR/float-picker.sh" "$pane" "$range" ;;
+  done|running|read) CLAUDE_TMUX_SESSION="$(tmux display -p -t "$pane" '#{session_name}' 2>/dev/null)" CLAUDE_TMUX_USAGE_FOOTER=0 exec "$BIN_DIR/float-picker.sh" "$pane" "$range" ;;
 esac

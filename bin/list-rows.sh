@@ -482,6 +482,8 @@ IDLE_STALE = int(os.environ.get("CLAUDE_TMUX_IDLE_STALE_SECS", "7200"))  # 2h
 # See the CLAUDE_TMUX_ONLY filter in the loop below.
 only_ranks = {"done": {1}, "running": {2}, "wait": {-1}, "read": {3}}.get(
     os.environ.get("CLAUDE_TMUX_ONLY", ""))
+# CLAUDE_TMUX_SESSION=<名字>：只列这个 tmux session 里的窗格（状态栏的数字只数当前 session，点开要和它一致）
+only_session = os.environ.get("CLAUDE_TMUX_SESSION", "")
 
 # Four states, each with a distinct leading icon so it reads by shape, not
 # just colour: WAIT ⏸ (blocked — needs your choice, top priority), RUN ▶
@@ -565,6 +567,8 @@ for pane, e in eff.items():
     # the status bar's `✔ 4` / `▶ 1` / WAIT opens. Same ranks the bar counts
     # with, so the bar's number and the rows it opens always agree.
     if only_ranks is not None and rank not in only_ranks:
+        continue
+    if only_session and session != only_session:
         continue
     # Rows sort by tmux's own window.pane index (not status priority), so
     # the picker mirrors the order you see in tmux itself — predictable,
