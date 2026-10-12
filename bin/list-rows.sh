@@ -175,7 +175,36 @@ def acct_cell(pane, plain=False):
     return col(name, ACCT_W) if plain else f"\033[38;5;110m{col(name, ACCT_W)}\033[0m"
 
 
+# 模型和推理强度。ctx_to_tmux.py 把「Sonnet 5.5/medium」这样一串写在窗格的 @claude_model 上
+# （底栏用的就是它），这里直接拿来，不再自己去读会话记录。两个账号的额度烧得多快跟用哪个
+# 模型关系很大，所以放在行上一眼能比。Opus 画成琥珀色：它最费额度，挑出来最有用。
+MODEL_W = 17           # "Sonnet 5.5/xhigh" 是 16 格，加一格分隔
+_EFFORT_SHORT = {"medium": "med"}
+
+
+def model_text(raw):
+    """「Sonnet 5.5/medium」→「Sonnet 5.5/med」。没有斜杠（还没读到强度）就原样。"""
+    name, _, eff = raw.partition("/")
+    return f"{name}/{_EFFORT_SHORT.get(eff, eff)}" if eff else name
+
+
+def model_cell(pane, plain=False):
+    """模型列。没有任何窗格报了模型（没装 ctx_to_tmux.py 的人）整列不出现，行和以前一字不差。
+    plain 的意思同 acct_cell：整行都是暗色的那种行不能带自己的颜色。"""
+    if not model_col_on:
+        return ""
+    raw = model_of.get(pane, "")
+    if not raw:
+        return col("", MODEL_W)
+    cell = col(model_text(raw), MODEL_W)      # 先排版再上色，原因同 acct_cell
+    if plain or not raw.startswith("Opus"):
+        return cell
+    return f"\033[38;5;178m{cell}\033[0m"
+
+
 cfg_of = {}            # 窗格 → 它那个 Claude 的 CLAUDE_CONFIG_DIR
+model_of = {}          # 窗格 → 「模型/强度」
+model_col_on = False   # 有窗格报了模型才开那一列
 acct_col_on = False    # 有窗格用着非默认账号才开那一列
 task_of = {}
 if bin_dir and os.path.isdir(os.path.join(_claude_home, "projects")):
@@ -187,7 +216,7 @@ if bin_dir and os.path.isdir(os.path.join(_claude_home, "projects")):
         task_of = {}           # a broken read means "no tasks", never a broken list
 
 fmt = ("#{pane_id}\t#{session_name}\t#{window_index}\t#{window_name}"
-       "\t#{pane_index}\t#{pane_current_path}\t#{pane_title}\t#{@claude_config}")
+       "\t#{pane_index}\t#{pane_current_path}\t#{pane_title}\t#{@claude_config}\t#{@claude_model}")
 try:
     out = subprocess.check_output(["tmux", "list-panes", "-a", "-F", fmt], text=True)
 except Exception:
@@ -196,10 +225,12 @@ except Exception:
 live = {}
 for line in out.splitlines():
     parts = line.split("\t")
-    if len(parts) == 8:
+    if len(parts) == 9:
         live[parts[0]] = parts
+        model_of[parts[0]] = parts[8]
 # 有窗格用着非默认账号，才值得为它单开一列
 acct_col_on = any(p[7] for p in live.values())
+model_col_on = any(model_of.values())
 
 # Session display order follows tmux's own session_id (creation order —
 # the same stable order tmux itself lists sessions in), not "most urgent
@@ -314,7 +345,8 @@ def task_width():
         preview = 50
     list_pane = cols * (100 - min(max(preview, 0), 95)) // 100
     # 7 number + 6 label + 2 gap + NAME_W + AGE_W, then fzf's own gutter.
-    fixed = 7 + 6 + 2 + NAME_W + AGE_W + 3
+    fixed = (7 + 6 + 2 + NAME_W + AGE_W + 3
+             + (ACCT_W if acct_col_on else 0) + (MODEL_W if model_col_on else 0))
     return max(30, min(90, list_pane - fixed))
 
 
@@ -509,7 +541,7 @@ for pane, e in eff.items():
     # this list agree.
     if pane not in live or e.get("archived"):
         continue
-    _, session, win_idx, window_name, pane_idx, cwd, pane_title, cfg = live[pane]
+    _, session, win_idx, window_name, pane_idx, cwd, pane_title, cfg, _model = live[pane]
     # 行是在底下另一个循环里拼的（它遍历 entries，手上只有 pane），所以这里按 pane 记一笔。
     # 别图省事直接在那边用 cfg：那是这个循环留下的最后一个值，每行都会拿到同一个账号。
     cfg_of[pane] = cfg
@@ -914,6 +946,7 @@ for s in sessions_sorted:
                     # 这一行整条都是暗的，所以队员格也走无色版本，不然它自带的
                     # \033[0m 会把后面的文字提前从暗色里拉出来。
                     + acct_cell(pane, plain=True)
+                    + model_cell(pane, plain=True)
                     + mate_cell(member, plain=True) + (trailing or tilde(cwd)))
             display = (f"  \033[2m{'' if is_mate else row_num:>3}  "
                        + (" " * MATE_INDENT if is_mate else "")
@@ -926,6 +959,7 @@ for s in sessions_sorted:
                 + name_cell
                 + col(fmt_age(rank, age), AGE_W)
                 + acct_cell(pane)
+                + model_cell(pane)
                 # 队员格在 dim 的外面：它自带颜色，包进 \033[2m 里那串 \033[0m
                 # 会把后面的自由文本提前从暗色里拉出来。
                 + mate_cell(member)
