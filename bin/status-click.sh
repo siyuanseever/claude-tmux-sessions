@@ -20,7 +20,10 @@ BIN_DIR="$(cd "$(dirname "$(readlink "$0" || echo "$0")")" && pwd)"
 range="${1:-}"; pane="${2:-}"; client="${3:-}"
 
 case "$range" in
-  quota)        exec "$BIN_DIR/usage-refresh.py" --force --notify --client "$client" ;;
+  quota)        # 当前窗格是哪个账号的 Claude（ctx_to_tmux.py 写的 @claude_config），就刷新、显示哪个账号的额度
+                config="$(tmux show -pqv -t "$pane" @claude_config 2>/dev/null || true)"
+                exec "$BIN_DIR/usage-refresh.py" --force --notify --client "$client" \
+                  ${config:+--config "$config"} ;;
   w%*)          exec "$BIN_DIR/jump-top.sh" "${range#w}" ;;
   done|running|read)
     export CLAUDE_TMUX_SESSION="$(tmux display -p -t "$pane" '#{session_name}' 2>/dev/null)" CLAUDE_TMUX_USAGE_FOOTER=0

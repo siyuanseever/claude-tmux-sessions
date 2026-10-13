@@ -165,6 +165,16 @@ def until_str(iso):
     return f"{m} 分钟"
 
 
+def account():
+    """'siyuan.l' — whose quota this is, from the config Claude Code writes.
+    Two accounts can be open at once, so the card says which one it shows."""
+    path = os.path.join(HOME, ".claude.json") if CFG == DEFAULT_CFG else os.path.join(CFG, ".claude.json")
+    try:
+        return ((load(path).get("oauthAccount") or {}).get("emailAddress") or "").split("@")[0]
+    except Exception:
+        return ""
+
+
 def at_str(ms):
     """When a reading was taken: '14:02', or '09-26 14:02' if not today."""
     if not ms:
@@ -188,12 +198,14 @@ def show_card(usage, err, live, note=None, refreshing=False):
     is closed, which is how main() knows whether the card is still up."""
     data = usage or {w: live.get(w) for w in WINDOWS}
     at = at_str(live.get("fetched_at_ms"))
+    who = account()
+    head = f" Claude 额度（{who}）" if who else " Claude 额度"
     if refreshing:
-        title = f" Claude 额度 · {at} 的数据 · ⟳ 刷新中… " if at else " Claude 额度 · ⟳ 刷新中… "
+        title = f"{head} · {at} 的数据 · ⟳ 刷新中… " if at else f"{head} · ⟳ 刷新中… "
     elif usage:
-        title = f" Claude 额度 · {time.strftime('%H:%M')} 刷新 "
+        title = f"{head} · {time.strftime('%H:%M')} 刷新 "
     elif note:
-        title = f" Claude 额度 · {at or '之前'} 的数据（{note}）"
+        title = f"{head} · {at or '之前'} 的数据（{note}）"
     else:
         title = " 没刷新成功：" + (err or "未知原因") + " "
     items = []
