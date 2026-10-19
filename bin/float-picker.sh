@@ -110,4 +110,7 @@ tmux set-hook -p -t "$fp" pane-focus-out \
 # 这个钩子，用布局变没变做判据它会当场自杀。
 # 挂成窗格级钩子（-p），所以 if -F 判的就是这一格自己，全程 tmux 内部完成，不起进程。
 tmux set-hook -p -t "$fp" window-layout-changed \
-  "if -F '#{!:#{pane_floating_flag}}' { kill-pane -t $fp }"
+  "if -F '#{!:#{pane_floating_flag}}' { run-shell -b \"tmux kill-pane -t $fp 2>/dev/null; true\" }"
+# 注意不能直接写 { kill-pane -t $fp }：窗格已经没了（你选完、picker 自己关掉）时布局一变，
+# 这个钩子照样跑，kill-pane 找不到窗格，tmux 就在左下角报 Can't find pane: %N。
+# 绕一层 run-shell 把报错吞掉（2026-10-19 用户报「每次选择左下角都显示 can't find the pane」）。
