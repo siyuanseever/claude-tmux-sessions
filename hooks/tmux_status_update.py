@@ -17,7 +17,10 @@ Modes:
                         finished and is just waiting on the next message —
                         worth a glance, not urgent, no notification)
   unblock           called by the PostToolUse hook. A tool actually ran,
-                    so whatever the pane was blocked on has been answered.
+                    so whatever the pane was blocked on has been answered —
+                    and if the pane still says done/input, a new turn has
+                    started without UserPromptSubmit (teammate message,
+                    task notification), so it is running again.
                     Cheap by design: it only writes when this pane is
                     currently "blocked" — see the function for why that
                     matters on a hook that fires after every tool call.
@@ -537,15 +540,27 @@ def unblock():
     # subagent 被 SUBAGENT_TTL 当成死了。只有这个窗格有 subagent 在册时才去读 stdin
     # （PostToolUse 的输入里带着整份工具输出，可能很大）；隔 SUBAGENT_HEARTBEAT 秒
     # 才写一次盘。没有 subagent 的普通工具调用，代价和以前一样。
+    # stdin 只能读一次，下面两处（subagent 心跳、不经 UserPromptSubmit 的新一轮）共用这一份。
+    inp = read_stdin() if cur.get("subagents") or cur.get("status") in ("done", "input") else {}
     beat = None
     if cur.get("subagents"):
-        aid = read_stdin().get("agent_id")
+        aid = inp.get("agent_id")
         rec = (cur.get("subagents") or {}).get(aid) if aid else None
         if isinstance(rec, dict) and \
                 time.time() - (rec.get("seen_at") or 0) > SUBAGENT_HEARTBEAT:
             beat = aid
 
-    if cur.get("status") != "blocked" and beat is None:
+    # 不经 UserPromptSubmit 开始的一轮：队友发来的 <teammate-message>、后台任务的通知把 Claude
+    # 叫起来接着干，状态却还停在上一轮 Stop 写的 done/input（2026-10-22 用户：「有的正在 run，
+    # 但是它就显示它们没有在 run」；实测 %113 队友 12:38:50 Stop，12:45:02 收到领队消息接着干，
+    # 状态一直是 done）。主 agent 只有在一轮里才会调工具，所以主 agent 的工具调用 = 在跑。
+    # 后台 subagent 的工具调用（输入里带 agent_id）不算：主 agent 确实停了，subagent 另有记账。
+    # 只在 done/input 时才读 stdin，正常工具调用仍走上面的快路径。
+    resumed = False
+    if cur.get("status") in ("done", "input"):
+        resumed = not inp.get("agent_id")
+
+    if cur.get("status") != "blocked" and beat is None and not resumed:
         return
 
     def apply(data):
@@ -554,15 +569,16 @@ def unblock():
             return
         # Re-checked under the lock: the read above was unlocked, and Stop
         # may have overwritten the entry in between.
-        if e.get("status") == "blocked":
+        if e.get("status") == "blocked" or (resumed and e.get("status") in ("done", "input")):
             e["status"] = "running"
             e["updated_at"] = time.time()
+            e.pop("read", None)
         rec = (e.get("subagents") or {}).get(beat) if beat else None
         if isinstance(rec, dict):
             rec["seen_at"] = time.time()
 
     with_status_file(apply)
-    if cur.get("status") == "blocked":
+    if cur.get("status") == "blocked" or resumed:
         sync_window_badges()     # 光是心跳的话显示不变，不用刷
 
 
