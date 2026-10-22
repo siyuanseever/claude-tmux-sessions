@@ -104,7 +104,11 @@ means you can read the list without relying on it.
   `/usage` data), plus live per-model token counts from transcripts.
 - **Survives a tmux crash.** Optional [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect)
   integration re-runs `claude --resume <session_id>` in each restored pane, so
-  your sessions come back — not just empty shells.
+  your sessions come back — not just empty shells. `bin/resurrect_hooks.py` also
+  keeps sessions another program owns out of the save (`@resurrect-skip-sessions`),
+  stops resurrect's prefix match from restoring `foo` into an existing `foo-bar`,
+  and closes restored copies of panes marked `@resurrect_skip` (claude-trail's sidebar);
+  install.sh prints the four tmux lines to add.
 
 ## Heads up before you install
 
@@ -261,7 +265,7 @@ session, and check that `~/.claude/settings.json` lists
 ### Uninstall
 
 ```bash
-rm ~/.claude/hooks/{tmux_status_update.py,claude-tmux-picker.sh,jump-top.sh,status-badge.sh,restore-claude.sh}
+rm ~/.claude/hooks/{tmux_status_update.py,claude-tmux-picker.sh,jump-top.sh,status-badge.sh,restore-claude.sh,resurrect_hooks.py}
 rm -f ~/.claude/tmux-claude-status.json ~/.claude/tmux-claude-restore.json ~/.claude/tmux-quota-cache.json
 ```
 

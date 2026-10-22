@@ -470,6 +470,9 @@ def record_status(status, stdin_data):
                 "cwd": cwd,
                 "window_name": window_name,
                 "updated_at": now,
+                # claude2 = the second account (CLAUDE_CONFIG_DIR=~/.claude-l2):
+                # resume it under the same one, not the default login
+                "config_dir": os.environ.get("CLAUDE_CONFIG_DIR", ""),
             }
 
         with_status_file(update_restore, path=RESTORE_FILE)

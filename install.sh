@@ -26,6 +26,7 @@ ln -sf "$REPO_DIR/bin/claude-tmux-picker.sh" "$CLAUDE_HOOKS_DIR/claude-tmux-pick
 ln -sf "$REPO_DIR/bin/jump-top.sh" "$CLAUDE_HOOKS_DIR/jump-top.sh"
 ln -sf "$REPO_DIR/bin/status-badge.sh" "$CLAUDE_HOOKS_DIR/status-badge.sh"
 ln -sf "$REPO_DIR/bin/restore-claude.sh" "$CLAUDE_HOOKS_DIR/restore-claude.sh"
+ln -sf "$REPO_DIR/bin/resurrect_hooks.py" "$CLAUDE_HOOKS_DIR/resurrect_hooks.py"
 ln -sf "$REPO_DIR/bin/float-picker.sh" "$CLAUDE_HOOKS_DIR/float-picker.sh"
 ln -sf "$REPO_DIR/bin/usage-refresh.py" "$CLAUDE_HOOKS_DIR/usage-refresh.py"
 ln -sf "$REPO_DIR/bin/status-click.sh" "$CLAUDE_HOOKS_DIR/status-click.sh"
@@ -131,8 +132,13 @@ tmux_conf_theme_window_status_format 和 ..._current_format。
 
     set -g window-status-format '#I#{E:@claude_win} #{s|^[^ -~] ||:window_name}'
 
-可选：如果你用 tmux-resurrect/continuum，加上这行，恢复布局后自动
-claude --resume 回到每个 pane 原来的会话（正常退出的不会被复活）：
+可选：如果你用 tmux-resurrect/continuum，加上这几行，恢复布局后自动
+claude --resume 回到每个 pane 原来的会话（正常退出的不会被复活）；
+@resurrect-skip-sessions 里的会话（别的程序自己管的，比如 launchd 起的服务）不存也不恢复，
+打了 @resurrect_skip 的窗格（claude-trail 的侧栏）恢复后关掉，由侧栏自己重开：
 
-    set -g @resurrect-hook-post-restore-all '~/.claude/hooks/restore-claude.sh'
+    set -g @resurrect-skip-sessions 'sensen-servers'
+    set -g @resurrect-hook-post-save-layout '~/.claude/hooks/resurrect_hooks.py save-layout'
+    set -g @resurrect-hook-pre-restore-all '~/.claude/hooks/resurrect_hooks.py pre-restore'
+    set -g @resurrect-hook-post-restore-all '~/.claude/hooks/resurrect_hooks.py post-restore'
 EOF
