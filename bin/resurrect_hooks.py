@@ -22,8 +22,12 @@ Three things went wrong on the 2026-10-18 boot (and are fixed here):
    not yet, the answer was "yes", so every sensen window was created with
    `new-window -t sensen:N` — which also lands in sensen-servers. Then
    resume found no sensen:N.1 and skipped all seven Claudes. pre-restore
-   renames any live session that a missing saved session is a prefix of out of
-   the way, post-restore renames it back.
+   creates each such missing session itself, as a placeholder whose only window
+   is moved out to index PLACEHOLDER_WINDOW, so the exact name exists and wins;
+   post-restore closes that window. Live sessions are never renamed or touched
+   (a renamed sensen-servers would make launchd start a second one), and a
+   restore that dies half-way leaves nothing worse than one empty window, which
+   the next pre-restore or save cleans up (stale_cleanup).
 
 3. claude-trail's sidebar came back as two empty shells. A pane is just a pane
    to resurrect: the sidebar (fzf) and the shell under it were saved and
@@ -47,15 +51,18 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 
 HOME = os.path.expanduser("~")
 # Overridable so a test against a throwaway tmux server (-L) leaves the real ones alone.
 RESTORE_FILE = os.environ.get("CLAUDE_TMUX_RESTORE_FILE") or os.path.join(HOME, ".claude", "tmux-claude-restore.json")
 STATE_FILE = os.environ.get("CLAUDE_TMUX_RESURRECT_STATE") or os.path.join(HOME, ".claude", "tmux-resurrect-restore-state.json")
 SKIP_LINE = "x_resurrect_skip"
+KNOWN_LINES = ("pane", "window", "state", "grouped_session", SKIP_LINE)
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "ksh", "tcsh", "nu"}
 RESUME = re.compile(r"(?:^|[\s/])claude\s.*--resume\s+(\S+)")   # `claude …` or `/path/to/claude …`
-HERE = os.path.dirname(os.path.realpath(__file__))
+PLACEHOLDER_WINDOW = 9999
+STALE_SECS = 300          # a state file this old belongs to a restore that never finished
 
 
 def tmux(*args):
@@ -99,12 +106,15 @@ def drop_skipped(lines, skip):
     """Every pane/window/grouped_session line of a skipped session goes."""
     if not skip:
         return lines
-    out = []
+    out, dropping = [], False
     for l in lines:
         f = l.split("\t")
-        if f[0] in ("pane", "window", "grouped_session", SKIP_LINE) and len(f) > 1 and f[1] in skip:
-            continue
-        out.append(l)
+        if f[0] in KNOWN_LINES:
+            dropping = f[0] in ("pane", "window", "grouped_session", SKIP_LINE) and len(f) > 1 and f[1] in skip
+        # else: the rest of the previous line — resurrect writes a full command that has a
+        # newline in it as is (sensen-servers' `zsh -ic "…"`), so it goes with that line.
+        if not dropping:
+            out.append(l)
     return out
 
 
@@ -126,7 +136,11 @@ def save_json(path, obj):
 # -- save -------------------------------------------------------------------
 
 def cmd_save_layout(path):
-    lines = [l for l in read_lines(path) if not l.startswith(SKIP_LINE + "\t")]
+    stale_cleanup()
+    # Placeholder windows only live during a restore (a save can land in the middle of
+    # one, or before stale_cleanup got to it); never let one into a save.
+    lines = [l for l in read_lines(path) if not l.startswith(SKIP_LINE + "\t")
+             and not (l.split("\t")[0] in ("pane", "window") and l.split("\t")[2:3] == [str(PLACEHOLDER_WINDOW)])]
     lines = drop_skipped(lines, skip_sessions())
     out = tmux("list-panes", "-a", "-F",
                "#{session_name}\t#{window_index}\t#{pane_index}\t#{@resurrect_skip}") or ""
@@ -139,7 +153,43 @@ def cmd_save_layout(path):
 
 # -- restore ----------------------------------------------------------------
 
+def server_id():
+    return (tmux("display", "-p", "#{pid}:#{start_time}") or "").strip()
+
+
+def close_placeholders(state):
+    """Only on the same tmux server (window ids restart from @0 with a new one, so a
+    stale id could name a real window), and only a window that is still exactly the
+    placeholder: at PLACEHOLDER_WINDOW, one pane."""
+    if not state.get("placeholders") or state.get("server") != server_id():
+        return
+    for wid in state["placeholders"]:
+        info = (tmux("display", "-p", "-t", wid, "#{window_id}\t#{window_index}\t#{window_panes}") or "").strip()
+        if info == f"{wid}\t{PLACEHOLDER_WINDOW}\t1":
+            tmux("kill-window", "-t", wid)
+
+
+def stale_cleanup():
+    """A restore that died before post-restore: close its placeholders, forget it."""
+    try:
+        age = time.time() - os.path.getmtime(STATE_FILE)
+    except OSError:
+        return
+    if age > STALE_SECS:
+        close_placeholders(load(STATE_FILE, {}))
+        try:
+            os.remove(STATE_FILE)
+        except OSError:
+            pass
+
+
 def cmd_pre_restore():
+    # Whatever an earlier, unfinished restore left is not this restore's state.
+    close_placeholders(load(STATE_FILE, {}))
+    try:
+        os.remove(STATE_FILE)
+    except OSError:
+        pass
     path = last_file()
     lines = read_lines(path)
     if not lines:
@@ -149,20 +199,22 @@ def cmd_pre_restore():
         write_lines(path, kept)
     saved = {l.split("\t")[1] for l in kept if l.startswith("pane\t")}
     live = set((tmux("list-sessions", "-F", "#{session_name}") or "").split("\n")) - {""}
-    held = {}
-    for name in sorted(live):
-        if any(s != name and name.startswith(s) and s not in live for s in saved):
-            hold = f"_resurrect_hold_{len(held)}"
-            if tmux("rename-session", "-t", f"={name}", hold) is not None:
-                held[hold] = name
+    placeholders = []
+    for name in sorted(saved - live):
+        if not any(other.startswith(name) for other in live):
+            continue                      # nothing it could be mistaken for
+        wid = (tmux("new-session", "-d", "-s", name, "-P", "-F", "#{window_id}") or "").strip()
+        if not wid:
+            continue
+        tmux("move-window", "-s", wid, "-t", f"={name}:{PLACEHOLDER_WINDOW}")
+        placeholders.append(wid)
     panes = (tmux("list-panes", "-a", "-F", "#{pane_id}") or "").split()
-    save_json(STATE_FILE, {"held": held, "existing_panes": panes})
+    save_json(STATE_FILE, {"server": server_id(), "placeholders": placeholders, "existing_panes": panes})
 
 
 def cmd_post_restore():
     state = load(STATE_FILE, {})
-    for hold, name in (state.get("held") or {}).items():
-        tmux("rename-session", "-t", f"={hold}", name)
+    close_placeholders(state)
     existing = set(state.get("existing_panes") or [])
     n = resume(only_new=existing if state else None)
     closed = close_skipped(existing)
