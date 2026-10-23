@@ -93,7 +93,8 @@ print("hooks merged into", path)
 PYEOF
 
 # 侧栏的常驻进程（launchd：开机自启、崩了自动拉起）。只在 macOS 上；别的系统先手动跑 sidebar/trail_daemon.py。
-if [ "$(uname)" = Darwin ]; then
+# CLAUDE_TMUX_NO_DAEMON=1 跳过这一步（在临时目录里试装、或者你想自己管常驻进程的时候）。
+if [ "$(uname)" = Darwin ] && [ -z "${CLAUDE_TMUX_NO_DAEMON:-}" ]; then
   echo "==> installing the sidebar daemon (launchd: com.claude-tmux.sidebar)"
   sh "$REPO_DIR/sidebar/install.sh"
 fi
@@ -106,27 +107,25 @@ cat <<'EOF'
 
 ==> 安装完成，还差最后一步（手动，因为每个人的 tmux 配置不一样）：
 
-在你的 tmux 配置文件（例如 ~/.tmux.conf 或 ~/.tmux.conf.local）里加一行绑定，
-用来弹出选择器，例如绑定到 prefix+g：
+1. 在你的 tmux 配置（~/.tmux.conf 或 ~/.tmux.conf.local）最后加一行，装上按键、鼠标和钩子
+   （prefix+g 选择器、prefix+a 跳到最该处理的、点底栏、点浮窗外面关弹窗、切窗格标记已读）：
 
-    bind g run-shell 'tmux display-popup -w 95% -h 85% -E "CALLER_PANE=#{pane_id} ~/.claude/hooks/claude-tmux-picker.sh"'
+    source-file ~/projects/claude-tmux-sessions/tmux/claude-tmux.conf
 
-必须包一层 run-shell —— display-popup 自己的 -e/-E 参数不会被 tmux 做 format
-展开，只有 run-shell 的 shell-command 参数会（见 man tmux），所以 #{pane_id}
-要在这里先展开成真实值，再交给 display-popup。
+   （仓库不在 ~/projects 下就改成你 clone 的位置。）
 
-改完执行 `tmux source-file ~/.tmux.conf` (或对应的配置文件) 让它生效。
+2. 把底栏要显示的几段拼进你的 status-left / status-right（各家主题不同，所以不替你改）：
 
-如果 Claude Code 会话已经在跑，需要在里面执行一次 /hooks 让新 hook 生效
-（已存在的会话不会自动感知刚写入的 settings.json）。
+    #(~/.claude/hooks/status-badge.sh states)    各会话状态计数 ⏸ ✔ ▶ ✓，能点
+    #(~/.claude/hooks/float-tool.sh --buttons)   开关侧栏的按钮
+    #(~/.claude/hooks/tmux-sysstat.sh)           整机 CPU / 内存 / 交换 / 磁盘，能点
 
-可选：不打开 picker，直接跳到最需要处理的 pane（bind 到比如 prefix+a）：
+   改完 `tmux source-file ~/.tmux.conf`。
 
-    bind a run-shell '~/.claude/hooks/jump-top.sh'
+3. 想用侧栏的 ⇄ 换账号：在 ~/.config/claude-tmux/accounts.json 里写上你的几个账号
+   （格式见 bin/switch_account.py 的 load_accounts）。
 
-可选：在 tmux 状态栏里常驻显示未处理数量（把这段拼进你的 status-right）：
-
-    #(~/.claude/hooks/status-badge.sh)
+已经在跑的 Claude Code 会话，要在里面执行一次 /hooks 才会用上新写进 settings.json 的 hook。
 
 可选：让每个窗口在窗口列表里直接显示自己的 Claude 状态（⏸ 等你确认 / ✔ 跑完未读 /
 ▶ 正在跑 / ✓ 已看过），不用打开 picker 就知道是哪个窗口：
@@ -137,12 +136,6 @@ cat <<'EOF'
 用 gpakosz/.tmux 的话，改成放进 ~/.tmux.conf.local 里的
 tmux_conf_theme_window_status_format 和 ..._current_format。
 渲染时不起进程：hooks 直接把 badge 写进窗口选项。
-
-配套加上这条 hook，让「切到一个窗口」就算看过了（否则 read 只有 picker 和 prefix+a
-会设，你切过去看过了，状态栏还在拿绿色催你）。它不动 blocked 的 pane —— 顺手划过一个
-窗口不该把 WAIT 告警消掉：
-
-    set-hook -g pane-focus-in 'run-shell -b "python3 ~/.claude/hooks/tmux_status_update.py mark-seen #{pane_id}"'
 
 如果你的窗口名跟着 Claude 的 pane title 走，名字开头已经有 Claude 自己的状态字符
 （✳ 空闲 / ◑◐ 转圈），它只分得清在不在跑。显示时剥掉它，只留信息更全的 badge：
