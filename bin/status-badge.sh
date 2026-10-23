@@ -6,7 +6,7 @@
 # picker or relying on a macOS notification.
 set -euo pipefail
 
-STATUS_FILE="$HOME/.claude/tmux-claude-status.json"
+STATUS_FILE="${CLAUDE_TMUX_STATUS_FILE:-$HOME/.claude/tmux-claude-status.json}"   # 可覆盖：测试用
 
 # Clean out stale entries (dead pane / Claude exited) before counting —
 # but only if there's a file to clean; the quota half still shows when no
@@ -28,6 +28,10 @@ BIN_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 #   status-badge.sh states    WAIT / ✔ / ▶ only
 #   status-badge.sh quota     5h / 7d only — skips the prune, so running
 #                             both halves doesn't prune twice per refresh
+#   status-badge.sh others '' S  one chip, `✔N`: finished-and-unread Claudes in every
+#                             session *except* S — sits next to the session button,
+#                             so you can see whether switching away is worth it.
+#                             Skips the prune too (states already does it).
 #
 # quota takes a second argument: the config dir of the Claude in the current
 # pane (tmux expands #{@claude_config}, which ctx_to_tmux.py writes on the
@@ -40,7 +44,7 @@ CFG="${2:-}"
 # states 模式的第三个参数：只数这个 tmux session 里的窗格（tmux 传 #{session_name}）。
 # 空 = 数全部，跟以前一样。只看当前 session，别的 session 的 WAIT / DONE 不进计数、也不抢状态栏。
 SCOPE="${3:-}"
-if [ "$MODE" != quota ]; then
+if [ "$MODE" != quota ] && [ "$MODE" != others ]; then
   if [ -s "$STATUS_FILE" ]; then
     python3 "$BIN_DIR/../hooks/tmux_status_update.py" prune 2>/dev/null || true
   else
@@ -143,11 +147,15 @@ except Exception:
 now = time.time()
 blocked = []            # (elapsed_secs, window_name, pane_id) for blocked-and-unread
 done_unread = running = read_count = 0
+others_done = 0         # others 模式：别的 session 里完成未读的，和 ✔ 同一套判据
 for pane, e in data.items():
     if pane not in live or e.get("archived") or pane in mate_panes:
         continue
     status = e.get("status", "running")
     age = int(now - e.get("updated_at", now))
+    if (scope and sess_of.get(pane) != scope and status in ("done", "input")
+            and not e.get("read") and age < IDLE_STALE):
+        others_done += 1
     # 只数当前 session —— 但 ⏸ 例外：别的 session 里有人在等你确认是唯一会卡住你的事，
     # 不能因为专注当前 session 就看不到（用户 2026-10-12 要求改回去）。
     if scope and sess_of.get(pane) != scope and not (status == "blocked" and not e.get("read")):
@@ -170,6 +178,17 @@ for pane, e in data.items():
         # else: aged out — dropped from the bar entirely
     elif status == "running":
         running += 1
+
+
+# 切换 session 按钮旁边那个数（2026-10-23 用户：「切换 Session 按钮旁边增加一个状态，就是对方要
+# 切换的那个 Session 里有多少个已经 Done 的……Running 的就不看了」）。只数 ✔，不数 ▶。
+# 零也画（灰），不画的话它一出一没，后面的 ⏸ ✔ ▶ ✓ 和按钮就跟着左右挪，点错位置。
+# 只改前景色：它嵌在 oh-my-tmux 画的那块 session 底色里，底色由那边管。点它没有单独的范围，
+# 落到 MouseDown1StatusLeft，就是弹 session 列表 —— 正好是「切过去」那个动作。
+if os.environ.get("MODE") == "others":
+    colour = "#5fff00,bold" if others_done else "#6c6c6c"
+    print(f"#[fg={colour}]✔︎{others_done}#[nobold]")
+    sys.exit(0)
 
 
 # Our own snapshot of the last live 5h reading. Claude Code's
