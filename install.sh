@@ -30,6 +30,11 @@ ln -sf "$REPO_DIR/bin/resurrect_hooks.py" "$CLAUDE_HOOKS_DIR/resurrect_hooks.py"
 ln -sf "$REPO_DIR/bin/float-picker.sh" "$CLAUDE_HOOKS_DIR/float-picker.sh"
 ln -sf "$REPO_DIR/bin/usage-refresh.py" "$CLAUDE_HOOKS_DIR/usage-refresh.py"
 ln -sf "$REPO_DIR/bin/status-click.sh" "$CLAUDE_HOOKS_DIR/status-click.sh"
+# git / 文件弹窗、资源显示、侧栏的模型和上下文、切账号（原来分散在别的仓库，2026-10-23 并进来）
+ln -sf "$REPO_DIR/bin/float-tool.sh" "$CLAUDE_HOOKS_DIR/float-tool.sh"
+ln -sf "$REPO_DIR/bin/tmux-sysstat.sh" "$CLAUDE_HOOKS_DIR/tmux-sysstat.sh"
+ln -sf "$REPO_DIR/bin/sys-monitor.py" "$CLAUDE_HOOKS_DIR/sys-monitor.py"
+ln -sf "$REPO_DIR/hooks/ctx_to_tmux.py" "$CLAUDE_HOOKS_DIR/ctx_to_tmux.py"
 
 echo "==> updating $SETTINGS_FILE"
 python3 - "$SETTINGS_FILE" <<'PYEOF'
@@ -44,13 +49,16 @@ else:
 
 hooks = settings.setdefault("hooks", {})
 
-def ensure_hook(event, command):
+def ensure_hook(event, command, timeout=None):
     entries = hooks.setdefault(event, [])
     for entry in entries:
         for h in entry.get("hooks", []):
             if h.get("command") == command:
                 return  # already installed
-    entries.append({"hooks": [{"type": "command", "command": command}]})
+    h = {"type": "command", "command": command}
+    if timeout:
+        h["timeout"] = timeout
+    entries.append({"hooks": [h]})
 
 ensure_hook("UserPromptSubmit",
             "python3 ~/.claude/hooks/tmux_status_update.py running 2>/dev/null || true")
@@ -74,12 +82,21 @@ ensure_hook("SubagentStop",
 
 # ensure_ascii=False：settings.json 里常有中文（权限说明、别的钩子的注释），默认的
 # \uXXXX 转义虽然等价，但会把整个文件改得面目全非。
+# 侧栏表头的模型 / 上下文 / 账号：每个 Claude 把这些写进自己所在 tmux 窗格的选项
+for ev in ("SessionStart", "UserPromptSubmit", "Stop", "PostToolUse"):
+    ensure_hook(ev, "python3 ~/.claude/hooks/ctx_to_tmux.py 2>/dev/null || true", timeout=5)
 with open(path, "w", encoding="utf-8") as f:
     json.dump(settings, f, indent=2, ensure_ascii=False)
     f.write("\n")
 
 print("hooks merged into", path)
 PYEOF
+
+# 侧栏的常驻进程（launchd：开机自启、崩了自动拉起）。只在 macOS 上；别的系统先手动跑 sidebar/trail_daemon.py。
+if [ "$(uname)" = Darwin ]; then
+  echo "==> installing the sidebar daemon (launchd: com.claude-tmux.sidebar)"
+  sh "$REPO_DIR/sidebar/install.sh"
+fi
 
 if ! command -v terminal-notifier >/dev/null 2>&1; then
   echo "==> (可选) brew install terminal-notifier — 装了之后点击 blocked 通知能直接跳到那个 pane"
@@ -135,9 +152,9 @@ tmux_conf_theme_window_status_format 和 ..._current_format。
 可选：如果你用 tmux-resurrect/continuum，加上这几行，恢复布局后自动
 claude --resume 回到每个 pane 原来的会话（正常退出的不会被复活）；
 @resurrect-skip-sessions 里的会话（别的程序自己管的，比如 launchd 起的服务）不存也不恢复，
-打了 @resurrect_skip 的窗格（claude-trail 的侧栏）恢复后关掉，由侧栏自己重开：
+打了 @resurrect_skip 的窗格（sidebar/ 的侧栏）恢复后关掉，由侧栏自己重开：
 
-    set -g @resurrect-skip-sessions 'sensen-servers'
+    set -g @resurrect-skip-sessions 'my-servers'
     set -g @resurrect-hook-post-save-layout '~/.claude/hooks/resurrect_hooks.py save-layout'
     set -g @resurrect-hook-pre-restore-all '~/.claude/hooks/resurrect_hooks.py pre-restore'
     set -g @resurrect-hook-post-restore-all '~/.claude/hooks/resurrect_hooks.py post-restore'
