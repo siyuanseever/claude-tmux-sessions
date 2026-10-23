@@ -1,12 +1,12 @@
 <h1 align="center">claude-tmux-sessions</h1>
 
 <p align="center">
-  <b>在 tmux 里同时开十几个 <a href="https://claude.com/claude-code">Claude Code</a> —— 并且随时知道哪个在等你。</b>
+  <b>在 tmux 里带几支 <a href="https://claude.com/claude-code">Claude Code</a> 团队:谁在等你、大家在干什么、这个会话说过什么、一键换账号。</b>
 </p>
 
 <p align="center">
-  基于 hooks 追踪每个 Claude pane 的状态,为唯一真的会把你拖住的那个状态提供一条<b>不会自己消失</b>的告警,
-  再加一个一键唤出、带实时预览的 <code>fzf</code> picker 把你直接送过去。
+  一个 Claude 账号管一个项目,账号下每个会话担一个职位;人只做判断,只在有会话需要你时被叫过去。
+  这套工具让这种用法跑得起来:底栏、选择器、侧栏、换账号,全程鼠标能用。
 </p>
 
 <p align="center">
@@ -30,6 +30,17 @@
 
 每一行都有编号 —— 按 `5`,直接落到第 5 行。光标默认停在你当前所在的那个 pane,右侧则是
 **光标所在 pane 的实时画面**,随光标移动。
+
+## 四块东西
+
+| | 管什么 | 在哪儿 |
+|---|---|---|
+| **底栏** | 所有会话的状态:谁在等你(`⏸`)、谁做完了你还没看(`✔`)、谁在跑(`▶`);右边是整机 CPU / 内存 / 交换 / 磁盘 | tmux 状态栏,任何窗口都看得到,每段都能点 |
+| **选择器** | 所有会话一览,按 session 分组,带实时预览,输编号就跳 | `prefix + g`,或点底栏左边 |
+| **侧栏** | **这一个**会话:它说过的每一轮(点一下主界面滚过去)、上下文和 5 小时 / 7 天额度、它目录里没提交的文件数、git / 文件弹窗、换账号 | 贴在每个 Claude 右边,窗口够宽时自动打开 |
+| **换账号** | 把这个会话换到另一个 Claude 账号,接着原来的对话聊;在干活的、输入框里有没发的字的不动,带队员的先收队 | 侧栏上的 ⇄ |
+
+跟全局有关的放底栏,只跟当前这个会话有关的放侧栏。状态靠 Claude Code 的 hooks 上报,不轮询。
 
 <!--
   还缺一段约 10 秒的 GIF(docs/demo.gif):prefix+g → 列表弹出 → j/k 往下两格、
@@ -100,6 +111,10 @@
   (`terminal-notifier`/`osascript`)和提示音(`afplay`)。其余全是纯 tmux + bash +
   python3,在 Linux 上*应该*能跑(那两个调用会静默失败),但那条路**没有测过**,所以请把
   Linux 当作未验证而不是已支持。欢迎反馈。
+- **要 Nerd Font。** 侧栏和底栏的按钮是 [Nerd Font](https://www.nerdfonts.com/) 图标;终端里
+  别勾「非 ASCII 字符用另一个字体」,否则图标会被交给不含图标的字体去画,显示成问号。
+- **有几处靠读屏幕。** 状态本身靠 hooks,但侧栏「跳到第几轮」、换账号时认输入框,只能读 Claude Code
+  的屏幕文字。Claude Code 改版时这几处可能要跟着改。
 - **它会改你的 Claude Code 配置。** `install.sh` 会把五个脚本软链到 `~/.claude/hooks/`,
   并把四条 hook 合并进 `~/.claude/settings.json`(保留里面已有的内容)。想手动来的话先读
   `install.sh` —— 一百行左右,没有任何花活。卸载方法在下面。
@@ -115,26 +130,41 @@ git clone https://github.com/threedaycat/claude-tmux-sessions.git ~/projects/cla
 Claude Code。可选装 [terminal-notifier](https://github.com/julienXX/terminal-notifier),
 这样点 WAIT 通知就能直接跳到对应 pane。
 
-然后自己加上 tmux 绑定 —— 这是安装脚本刻意留给你的一步,因为大家的 tmux 配置差别太大。写进
-`~/.tmux.conf`(用 [gpakosz/.tmux](https://github.com/gpakosz/.tmux) 的话写
-`~/.tmux.conf.local`):
+`install.sh` 把脚本软链到 `~/.claude/hooks/`,把 hooks 合并进 `~/.claude/settings.json`,
+在 macOS 上再把侧栏的常驻进程装成 launchd 服务(不想装就 `CLAUDE_TMUX_NO_DAEMON=1 ./install.sh`)。
+重复跑没关系。
+
+剩下三步要你自己来,因为每个人的 tmux 配置差别太大。写进 `~/.tmux.conf`(用
+[gpakosz/.tmux](https://github.com/gpakosz/.tmux) 的话写 `~/.tmux.conf.local`):
+
+**1. 按键、鼠标、钩子** —— 一行就装上:
 
 ```tmux
-# prefix + g → 唤出 picker,光标停在你当前所在的 pane
-bind g run-shell 'tmux display-popup -w 95% -h 85% -E "CALLER_PANE=#{pane_id} ~/.claude/hooks/claude-tmux-picker.sh"'
-
-# prefix + a → 不看界面,直接跳到最该被处理的那个 pane
-bind a run-shell '~/.claude/hooks/jump-top.sh'
+source-file ~/projects/claude-tmux-sessions/tmux/claude-tmux.conf
 ```
 
-用 `tmux source-file ~/.tmux.conf` 重载。然后在任意一个**已经在跑的** Claude Code session
-里执行一次 `/hooks`,让它读到新配置 —— 之后新起的 session 会自动带上。
+里面是:`prefix + g` 选择器、`prefix + a` 直接跳到最该处理的会话、点底栏各段、点浮窗外面关弹窗、
+点侧栏不抢焦点、切到一个窗格就算看过了。想换键位就照着 [`tmux/claude-tmux.conf`](tmux/claude-tmux.conf)
+自己写。
 
-状态栏那一条,把这个拼进你的 `status-right`:
+**2. 底栏** —— 把这几段拼进你的 `status-left` / `status-right`:
 
 ```tmux
-#(~/.claude/hooks/status-badge.sh)
+#(~/.claude/hooks/status-badge.sh)          # 状态计数 ⏸ ✔ ▶ ✓,能点
+#(~/.claude/hooks/float-tool.sh --buttons)  # 开关侧栏的按钮
+#(~/.claude/hooks/tmux-sysstat.sh)          # 整机 CPU / 内存 / 交换 / 磁盘,能点
 ```
+
+**3. 换账号**(可选) —— 写 `~/.config/claude-tmux/accounts.json`,列出你的几个账号和各自的
+`CLAUDE_CONFIG_DIR`:
+
+```json
+{"accounts": {"work": {"config_dir": "~/.claude"},
+              "home": {"config_dir": "~/.claude-home"}}}
+```
+
+然后 `tmux source-file ~/.tmux.conf` 重载,在任意一个**已经在跑的** Claude Code session 里执行一次
+`/hooks`,让它读到新配置 —— 之后新起的 session 会自动带上。
 
 渲染出来是额度条、仅在有东西被卡住时才出现的 WAIT badge,然后是完成未读数和运行中的计数:
 
@@ -226,12 +256,14 @@ python3 -c 'import json;print(json.dumps(json.load(open("'"$HOME"'/.claude/tmux-
 ### 卸载
 
 ```bash
-rm ~/.claude/hooks/{tmux_status_update.py,claude-tmux-picker.sh,jump-top.sh,status-badge.sh,restore-claude.sh}
+launchctl bootout gui/$(id -u)/com.claude-tmux.sidebar; rm -f ~/Library/LaunchAgents/com.claude-tmux.sidebar.plist
+rm ~/.claude/hooks/{tmux_status_update.py,claude-tmux-picker.sh,jump-top.sh,status-badge.sh,restore-claude.sh,resurrect_hooks.py,float-picker.sh,usage-refresh.py,status-click.sh,float-tool.sh,tmux-sysstat.sh,sys-monitor.py,ctx_to_tmux.py}
 rm -f ~/.claude/tmux-claude-status.json ~/.claude/tmux-claude-restore.json ~/.claude/tmux-quota-cache.json
+rm -rf ~/.local/state/claude-trail
 ```
 
-然后从 `~/.claude/settings.json` 里删掉那四条 `tmux_status_update.py` hook,再把 tmux
-配置里的绑定去掉。
+然后从 `~/.claude/settings.json` 里删掉 `tmux_status_update.py` 和 `ctx_to_tmux.py` 的 hook,再把 tmux
+配置里那行 `source-file …/claude-tmux.conf` 和底栏拼进去的几段去掉。
 
 ## picker 怎么用
 
@@ -330,6 +362,32 @@ Claude pane 挤在同一个 window 里时两者不同 —— window 标题是它
 
 把 `CLAUDE_TMUX_TEAM_LABELS` 指向一个 JSON(`{"成员名": "词"}`),就能自己决定**预览里**
 每个成员的角色显示哪个词。picker 只负责把它显示出来,不解释它是什么意思。
+
+## 侧栏
+
+每个 Claude 右边一条,窗口够宽(≥120 列)时你切过去就自动打开;点底栏的侧栏图标开关。
+上面是一条命令行(要敲 `git` 看一眼不用离开这个窗口),下面是侧栏本体:
+
+- **表头一排按钮**:到最底、git(旁边是这个目录里没提交的文件数)、文件、刷新额度(旁边是数据多新)、
+  ⇄ 换账号(旁边是现在登的账号)、关闭。git / 文件弹窗浮在右边,点左边的 Claude 就关。
+- **额度**:上下文、5 小时、7 天三条,平时淡灰,快有问题了才上颜色。
+- **每一轮一项**:你那一轮说的话 + Claude 回复的开头。点一下,主界面滚到那一轮的最终回复;
+  `/compact` 之前的轮次收成最上面一行,点开展开。
+
+它只读 Claude Code 自己写在 `~/.claude/projects/` 里的对话记录;对主界面只发滚动用的按键,
+不碰输入框。一个常驻进程管所有侧栏,对话记录只读新追加的行。细节见 [`sidebar/README.md`](sidebar/README.md)。
+
+## 换账号
+
+单个账号有 5 小时 / 7 天用量上限。点侧栏的 ⇄,这个会话退出、用另一个账号 `claude --resume`
+同一个会话 id,上下文不丢(几个账号的 `projects/` 要指向同一个目录,比如软链)。安全闸:
+
+- 正在干活、在等你确认的不动;
+- 输入框里有没发出去的字的不动(退出会丢);
+- 窗口里有队员(agent teams)的,先往领队输入框里打一句让它收队,队员都退出了再换。
+
+切换中按钮旁显示 `…`,被拦下显示 `✗`,原因在 tmux 底部弹一行。命令行也能用:
+`bin/switch_account.py --to <账号名> --pane %3 [--dry-run]`。
 
 ## 为什么不直接……
 

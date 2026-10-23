@@ -1,13 +1,13 @@
 <h1 align="center">claude-tmux-sessions</h1>
 
 <p align="center">
-  <b>Run a dozen <a href="https://claude.com/claude-code">Claude Code</a> sessions across tmux — and always know which one needs you.</b>
+  <b>Run several <a href="https://claude.com/claude-code">Claude Code</a> teams from tmux: who needs you, what everyone is doing, what this session said, and one-click account switching.</b>
 </p>
 
 <p align="center">
-  Hook-driven status tracking for every Claude pane, a persistent alarm for the
-  one state that actually stalls you, and a one-key <code>fzf</code> picker with
-  a live preview that jumps you straight there.
+  One Claude account per project, one session per role, and you only step in when a
+  session actually needs you. This toolkit makes that workflow run: a status bar,
+  a picker, a per-session sidebar and account switching — all mouse-friendly.
 </p>
 
 <p align="center">
@@ -33,6 +33,18 @@
 Every row is numbered — press `5`, land on pane 5. The cursor starts on the pane
 you're already in, and the right-hand pane shows a **live capture of that
 Claude's screen** as you move.
+
+## The four pieces
+
+| | What it covers | Where |
+|---|---|---|
+| **Status bar** | Every session's state: who's waiting on you (`⏸`), who finished and you haven't looked (`✔`), who's running (`▶`); on the right, machine CPU / memory / swap / disk | tmux status line, visible from any window, every segment clickable |
+| **Picker** | All sessions at a glance, grouped by tmux session, live preview, type a number to jump | `prefix + g`, or click the left end of the status bar |
+| **Sidebar** | **This** session: every turn it took (click one and the main pane scrolls there), context and 5h / 7d quota, uncommitted-file count, git / file pop-ups, account switch | docked to the right of each Claude, opens automatically when the window is wide enough |
+| **Account switch** | Move this session to another Claude account and keep the same conversation; refuses if it's busy or you have an unsent draft, and asks the lead to wind down its team first | the ⇄ button on the sidebar |
+
+Anything global lives in the status bar; anything about the current session lives in the sidebar.
+States come from Claude Code hooks, not polling.
 
 <!--
   Still missing: a ~10s GIF at docs/demo.gif (prefix+g → list appears → j/k down
@@ -124,6 +136,12 @@ means you can read the list without relying on it.
   *should* work on Linux — those two calls fail silently — but that path is
   **untested**, so treat Linux as unverified rather than supported. Reports
   welcome.
+- **Needs a Nerd Font.** Sidebar and status-bar buttons are [Nerd Font](https://www.nerdfonts.com/)
+  icons. Turn off "use a different font for non-ASCII text" in your terminal, or the icons get drawn
+  by a font that doesn't have them and show up as question marks.
+- **A few spots read the screen.** States come from hooks, but the sidebar's "jump to turn N" and
+  the account switch's draft check have to read Claude Code's screen text, so a Claude Code UI
+  change may need a matching fix there.
 - **It writes to your Claude Code config.** `install.sh` symlinks five scripts
   into `~/.claude/hooks/` and merges four hook entries into
   `~/.claude/settings.json`, preserving whatever's already there. If you'd
@@ -142,27 +160,42 @@ Claude Code with hooks support. Optionally
 [terminal-notifier](https://github.com/julienXX/terminal-notifier) so clicking
 the WAIT notification jumps to the pane.
 
-Then add the tmux binding — the one step the installer leaves to you, since tmux
-configs vary. In `~/.tmux.conf` (or `~/.tmux.conf.local` if you use
-[gpakosz/.tmux](https://github.com/gpakosz/.tmux)):
+`install.sh` symlinks the scripts into `~/.claude/hooks/`, merges the hooks into
+`~/.claude/settings.json`, and on macOS installs the sidebar daemon as a launchd service
+(skip it with `CLAUDE_TMUX_NO_DAEMON=1 ./install.sh`). Safe to re-run.
+
+Three steps are left to you, since tmux configs vary. In `~/.tmux.conf` (or
+`~/.tmux.conf.local` if you use [gpakosz/.tmux](https://github.com/gpakosz/.tmux)):
+
+**1. Keys, mouse and hooks** — one line:
 
 ```tmux
-# prefix + g → the picker, cursor starting on the pane you're currently in
-bind g run-shell 'tmux display-popup -w 95% -h 85% -E "CALLER_PANE=#{pane_id} ~/.claude/hooks/claude-tmux-picker.sh"'
-
-# prefix + a → jump straight to whichever pane needs you most, no picker
-bind a run-shell '~/.claude/hooks/jump-top.sh'
+source-file ~/projects/claude-tmux-sessions/tmux/claude-tmux.conf
 ```
 
-Reload with `tmux source-file ~/.tmux.conf`. Then run `/hooks` once in any
+It binds `prefix + g` (picker), `prefix + a` (jump to whoever needs you most), status-bar clicks,
+click-outside-to-close for the pop-ups, a sidebar that doesn't steal focus, and marks a pane as
+seen when you focus it. Want other keys? Copy [`tmux/claude-tmux.conf`](tmux/claude-tmux.conf) and edit.
+
+**2. Status bar** — splice these into your `status-left` / `status-right`:
+
+```tmux
+#(~/.claude/hooks/status-badge.sh)          # state counts ⏸ ✔ ▶ ✓, clickable
+#(~/.claude/hooks/float-tool.sh --buttons)  # sidebar toggle
+#(~/.claude/hooks/tmux-sysstat.sh)          # CPU / memory / swap / disk, clickable
+```
+
+**3. Account switching** (optional) — list your accounts and their `CLAUDE_CONFIG_DIR` in
+`~/.config/claude-tmux/accounts.json`:
+
+```json
+{"accounts": {"work": {"config_dir": "~/.claude"},
+              "home": {"config_dir": "~/.claude-home"}}}
+```
+
+Reload with `tmux source-file ~/.tmux.conf`, then run `/hooks` once in any
 **already-running** Claude Code session so it picks up the new config — freshly
 started sessions get it automatically.
-
-For the ambient status segment, splice this into your `status-right`:
-
-```tmux
-#(~/.claude/hooks/status-badge.sh)
-```
 
 which renders the quota bar, a WAIT badge only while something's blocked, then
 counts of unread-done and running:
@@ -265,12 +298,15 @@ session, and check that `~/.claude/settings.json` lists
 ### Uninstall
 
 ```bash
-rm ~/.claude/hooks/{tmux_status_update.py,claude-tmux-picker.sh,jump-top.sh,status-badge.sh,restore-claude.sh,resurrect_hooks.py}
+launchctl bootout gui/$(id -u)/com.claude-tmux.sidebar; rm -f ~/Library/LaunchAgents/com.claude-tmux.sidebar.plist
+rm ~/.claude/hooks/{tmux_status_update.py,claude-tmux-picker.sh,jump-top.sh,status-badge.sh,restore-claude.sh,resurrect_hooks.py,float-picker.sh,usage-refresh.py,status-click.sh,float-tool.sh,tmux-sysstat.sh,sys-monitor.py,ctx_to_tmux.py}
 rm -f ~/.claude/tmux-claude-status.json ~/.claude/tmux-claude-restore.json ~/.claude/tmux-quota-cache.json
+rm -rf ~/.local/state/claude-trail
 ```
 
-Then remove the four `tmux_status_update.py` hook entries from
-`~/.claude/settings.json` and the bindings from your tmux config.
+Then remove the `tmux_status_update.py` and `ctx_to_tmux.py` hook entries from
+`~/.claude/settings.json`, and the `source-file …/claude-tmux.conf` line and status-bar
+segments from your tmux config.
 
 ## Using the picker
 
@@ -420,6 +456,38 @@ never renamed anything.
 Point `CLAUDE_TMUX_TEAM_LABELS` at a JSON file (`{"member-name": "word"}`) to
 choose the word used for each member's role in the previews. The picker prints
 whatever you put there and doesn't interpret it.
+
+## The sidebar
+
+A strip to the right of each Claude, opened automatically when you switch to a window that's
+wide enough (≥120 columns); the status-bar sidebar icon toggles it. A small shell on top (for a
+quick `git` without leaving the window), the sidebar below:
+
+- **A row of buttons**: scroll to bottom, git (with the uncommitted-file count), files, refresh
+  quota (with how fresh it is), ⇄ switch account (with the account you're on), close. The git /
+  file pop-ups float on the right and close when you click the Claude on the left.
+- **Quota**: context, 5h, 7d bars — grey until something is about to go wrong.
+- **One item per turn**: what you said + how Claude's reply starts. Click it and the main pane
+  scrolls to that turn's final reply; turns before a `/compact` fold into one row at the top.
+
+It only reads the transcripts Claude Code already writes under `~/.claude/projects/`, and only
+sends scroll keys to the main pane — never touches the input box. One daemon serves every sidebar
+and only reads newly appended lines. Details (in Chinese) in [`sidebar/README.md`](sidebar/README.md).
+
+## Account switching
+
+A single account has 5h / 7d usage caps. Click ⇄ on the sidebar and the session exits and
+`claude --resume`s the same session id under the other account, so the conversation carries on
+(the accounts' `projects/` directories need to point at the same place, e.g. a symlink). It
+refuses when:
+
+- the session is working or waiting on a confirmation;
+- there's an unsent draft in the input box (exiting would lose it);
+- the window has agent-team teammates — then it first types a wind-down request to the lead, and
+  switches once the teammates have exited.
+
+The button shows `…` while switching and `✗` if it was refused, with the reason in the tmux
+message line. CLI: `bin/switch_account.py --to <account> --pane %3 [--dry-run]`.
 
 ## Why not just…
 
