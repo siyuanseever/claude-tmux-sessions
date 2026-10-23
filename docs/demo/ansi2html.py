@@ -214,7 +214,7 @@ def render(path, out_path, font_px=15.0):
       -webkit-font-smoothing:antialiased}}
   .r{{white-space:pre;height:1.46em}}
   .c1,.c2{{display:inline-block;overflow:hidden;vertical-align:top;
-      text-align:center;font-family:Menlo,"PingFang SC","Hiragino Sans",
+      text-align:center;font-family:Menlo,"MesloLGSDZ Nerd Font Mono","Hack Nerd Font Mono","PingFang SC","Hiragino Sans",
       "Apple Symbols","Apple Color Emoji",monospace}}
   .c1{{width:{cell:.4f}px}}
   .c2{{width:{cell * 2:.4f}px}}
