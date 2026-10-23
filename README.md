@@ -185,7 +185,7 @@ window list — `⏸` waiting on you, `✔` finished and unread, `◑` still run
 appended when one window holds several (agent teams):
 
 ```
-1 ✓ journal    3 ✔ ai-super-app    6 ◑ algo-eval    2 ⏸2▶ deploy
+1 ✓ journal    3 ✔ web-app         6 ◑ data-eval    2 ⏸2▶ deploy
 ```
 
 Three things it does on purpose:

@@ -166,7 +166,7 @@ def until_str(iso):
 
 
 def account():
-    """'siyuan.l' — whose quota this is, from the config Claude Code writes.
+    """'alex' — whose quota this is, from the config Claude Code writes.
     Two accounts can be open at once, so the card says which one it shows."""
     path = os.path.join(HOME, ".claude.json") if CFG == DEFAULT_CFG else os.path.join(CFG, ".claude.json")
     try:

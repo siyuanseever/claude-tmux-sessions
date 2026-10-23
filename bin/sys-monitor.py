@@ -407,7 +407,7 @@ def kill_plan(p, procs):
                 "它里面没存的东西会丢；别的会话如果正在测它，会被打断。")
     if g == "TCSAS 开发者工具":
         return ("正常退出 TCSAS 开发者工具", ["quit-app", "TCSAS-Devtools"],
-                "它里面没保存的调试现场会丢；ai-super-app 的会话预览/上传小程序会用它，它们下次用时会自己再开。")
+                "它里面没保存的调试现场会丢；别的会话可能正在用它预览或上传，它们下次用时会自己再开。")
     if g == "Colima / Docker 虚拟机":
         n = memo("dockerps", 15, lambda: run("docker", "ps", "-q", timeout=5).split())
         return ("colima stop（正常停掉 Docker 虚拟机）", ["colima-stop"],

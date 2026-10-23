@@ -9,7 +9,7 @@
 
 Three things went wrong on the 2026-10-18 boot (and are fixed here):
 
-1. A session launchd owns got saved and restored too. sensen-servers is made by
+1. A session launchd owns got saved and restored too. app-servers is made by
    ~/work/agent/demo/scripts/start_services.sh (launchd, at login and every
    5 min); resurrect has no business with it. Sessions named in the tmux option
    @resurrect-skip-sessions are dropped from every save (and from `last` again
@@ -17,15 +17,15 @@ Three things went wrong on the 2026-10-18 boot (and are fixed here):
    types into them.
 
 2. Whole sessions were restored into the wrong one. resurrect asks
-   `tmux has-session -t sensen`, and tmux falls back to a *prefix* match when
-   there is no exact one: with launchd's sensen-servers already up and sensen
-   not yet, the answer was "yes", so every sensen window was created with
-   `new-window -t sensen:N` — which also lands in sensen-servers. Then
-   resume found no sensen:N.1 and skipped all seven Claudes. pre-restore
+   `tmux has-session -t app`, and tmux falls back to a *prefix* match when
+   there is no exact one: with launchd's app-servers already up and app
+   not yet, the answer was "yes", so every app window was created with
+   `new-window -t app:N` — which also lands in app-servers. Then
+   resume found no app:N.1 and skipped all seven Claudes. pre-restore
    creates each such missing session itself, as a placeholder whose only window
    is moved out to index PLACEHOLDER_WINDOW, so the exact name exists and wins;
    post-restore closes that window. Live sessions are never renamed or touched
-   (a renamed sensen-servers would make launchd start a second one), and a
+   (a renamed app-servers would make launchd start a second one), and a
    restore that dies half-way leaves nothing worse than one empty window, which
    the next pre-restore or save cleans up (stale_cleanup).
 
@@ -112,7 +112,7 @@ def drop_skipped(lines, skip):
         if f[0] in KNOWN_LINES:
             dropping = f[0] in ("pane", "window", "grouped_session", SKIP_LINE) and len(f) > 1 and f[1] in skip
         # else: the rest of the previous line — resurrect writes a full command that has a
-        # newline in it as is (sensen-servers' `zsh -ic "…"`), so it goes with that line.
+        # newline in it as is (app-servers' `zsh -ic "…"`), so it goes with that line.
         if not dropping:
             out.append(l)
     return out

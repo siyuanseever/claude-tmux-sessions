@@ -408,8 +408,8 @@ def attach_lead(snap, pane_window):
     a separate, optional claim, and this function does not make it.**
 
     **窗口才是锚，session 不是。** 2026-09-29 之前这里按 tmux *session* 找候选，
-    然后因为候选太多而永不加冕 —— 本机一个真实的队，5 个队员全在 `zymix:1`，而按
-    session 算出 4 个候选（zymix:1..4 各一个 Claude），于是 lead 认不出来。
+    然后因为候选太多而永不加冕 —— 本机一个真实的队，5 个队员全在 `work:1`，而按
+    session 算出 4 个候选（work:1..4 各一个 Claude），于是 lead 认不出来。
     按*窗口*算只剩 1 个，而且那 1 个不是猜出来的：Claude Code 建队员窗格的代码
     (`TmuxBackend.createTeammatePaneWithLeader`) 取的就是 `getCurrentWindowTarget()`，
     队员是从 lead 自己那个窗口 split 出来的，所以 lead 必然和队员同窗口。

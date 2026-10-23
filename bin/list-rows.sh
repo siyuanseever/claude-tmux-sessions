@@ -151,7 +151,7 @@ def acct_name(cfg):
     """@claude_config → 列里那两个字。默认账号是空串。
 
     用的是配置目录名去掉 ".claude-" 的那一截（~/.claude-l2 → l2）——那是他自己给这张卡
-    起的名字，短，而且两个账号的邮箱前缀只差一个字符（siyuan.l / siyuan.l2），在一个
+    起的名字，短，而且两个账号的邮箱前缀只差一个字符（比如 alex / alex2），在一个
     两三格宽的列里分不出来。"""
     if not cfg:
         return ""

@@ -155,7 +155,7 @@ set -g window-status-current-format '#I#{E:@claude_win} #W'
 team)时后面跟数字:
 
 ```
-1 ✓ journal    3 ✔ ai-super-app    6 ◑ algo-eval    2 ⏸2▶ deploy
+1 ✓ journal    3 ✔ web-app         6 ◑ data-eval    2 ⏸2▶ deploy
 ```
 
 有三处是刻意这么做的:
