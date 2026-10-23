@@ -386,9 +386,28 @@ def usage_state(u):
     return f"{DIMC}{min(age // 3600, 99)} 小时前{RESET}"
 
 
+_SA = None
+
+
+def _switcher():
+    """bin/switch_account.py（账号配置在它那里读：~/.config/claude-tmux/accounts.json）。"""
+    global _SA
+    if _SA is None:
+        sys.path.insert(0, str(SWITCHER.parent))
+        import switch_account
+        _SA = switch_account
+    return _SA
+
+
 def other_cfg(cfg=""):
-    """另一个账号的配置目录（@claude_config 的写法：默认账号是空串）。"""
-    return str(Path.home() / ".claude-l2") if not cfg or Path(cfg) == DEFAULT_CFG else ""
+    """另一个账号的配置目录（@claude_config 的写法：默认账号是空串）；只配了一个账号是 None。"""
+    try:
+        sa = _switcher()
+    except Exception:
+        return None
+    cur = Path(os.path.expanduser(cfg)) if cfg else DEFAULT_CFG
+    d = next((cd for _, cd in sa.ACCTS.values() if Path(cd) != cur), None)
+    return None if d is None else ("" if Path(d) == DEFAULT_CFG else str(d))
 
 
 def switch_status(pane):
@@ -409,7 +428,10 @@ def account_state(cfg="", sw=None):
         return f"{WARN_C}…{RESET}"
     if sw.get("state") in ("fail", "skip") and time.time() - (sw.get("at") or 0) < 30:
         return f"{ALERT_C}✗{RESET}"
-    a, b = current_account(cfg), current_account(other_cfg(cfg))
+    oc = other_cfg(cfg)
+    if oc is None:                     # 只配了一个账号：没得切
+        return f"{DIMC}—{RESET}"
+    a, b = current_account(cfg), current_account(oc)
     if not a:
         return f"{DIMC}?{RESET}"
     pre = os.path.commonprefix([a, b]) if b else ""
@@ -657,9 +679,10 @@ def cmd_switch(pane):
     try:
         if not SWITCHER.exists():
             raise RuntimeError(f"没找到 {SWITCHER}")
-        sys.path.insert(0, str(SWITCHER.parent))
-        import switch_account as sa
+        sa = _switcher()
         target = other_cfg(_tmux("show", "-pqv", "-t", pane, "@claude_config").strip())
+        if target is None:
+            raise RuntimeError(f"只配了一个账号，在 {sa.ACCOUNTS_FILE} 里加上另一个")
         to = next(k for k, (_, d) in sa.ACCTS.items() if Path(d) == (Path(target) if target else DEFAULT_CFG))
         r = sa.switch_one(pane, to, log=lambda m: put("running", m))
     except Exception as e:                      # 出什么错都要把「…」收掉，别一直挂着
