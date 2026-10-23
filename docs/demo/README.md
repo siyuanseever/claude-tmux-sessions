@@ -73,3 +73,14 @@ docs/demo/render.sh /tmp/cover.ansi docs/zhihu-cover.png 15
 
 macOS 的 `/tmp` 是指向 `/private/tmp` 的软链,而 tmux 报的是解析后的真实路径。`HOME` 设成
 `/tmp/...` 的话 `list-rows.sh` 里的 `~` 缩写永远匹配不上,每一行都会显示绝对路径。
+
+### 演示 GIF `docs/demo.gif`
+
+```bash
+docs/demo/gif.sh          # → docs/demo.gif，各帧在 $TMPDIR/claude-tmux-gif/
+```
+
+在 stage-demo.sh 搭的演示服务上加底栏和侧栏（侧栏内容由 `sidebar-frame.py` 用侧栏的真代码在假数据上
+生成），再从第二个私有 tmux 服务（`-L shotouter`）里连上去、截外层那一格，所以一帧是演示服务的整屏：
+分屏、底栏、弹窗都在。各帧补齐到同一尺寸（贴左上角）后用 ffmpeg 拼成 GIF。分镜写在 gif.sh 开头。
+渲染用一个固定的 Chrome 配置目录，只杀自己起的那个 Chrome；起之前先确认 Chrome 不会下载本地 AI 模型。

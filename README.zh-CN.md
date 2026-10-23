@@ -42,11 +42,11 @@
 
 跟全局有关的放底栏,只跟当前这个会话有关的放侧栏。状态靠 Claude Code 的 hooks 上报,不轮询。
 
-<!--
-  还缺一段约 10 秒的 GIF(docs/demo.gif):prefix+g → 列表弹出 → j/k 往下两格、
-  预览跟着走 → Enter。静图已经能撑住 README,动图是 V2EX / HN 要的。
-  录制配方在 docs/PROMO.md。
--->
+<p align="center">
+  <img src="docs/demo.gif" alt="demo" width="960">
+</p>
+
+<p align="center"><sub>15 秒看完整套:底栏、选择器、跳到在等你的那个会话、在侧栏上换账号。由真实脚本在演示数据上渲染,见 <a href="docs/demo/">docs/demo</a>。</sub></p>
 
 
 ---

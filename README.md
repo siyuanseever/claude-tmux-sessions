@@ -46,11 +46,11 @@ Claude's screen** as you move.
 Anything global lives in the status bar; anything about the current session lives in the sidebar.
 States come from Claude Code hooks, not polling.
 
-<!--
-  Still missing: a ~10s GIF at docs/demo.gif (prefix+g → list appears → j/k down
-  two panes, preview following → Enter). The stills carry the README; the motion
-  is what V2EX/HN want. Recipe in docs/PROMO.md.
--->
+<p align="center">
+  <img src="docs/demo.gif" alt="demo" width="960">
+</p>
+
+<p align="center"><sub>The whole toolkit in 15 seconds: status bar, picker, jumping to the session that waits for you, and switching accounts from the sidebar. Rendered by the real scripts on demo data — <a href="docs/demo/">docs/demo</a>.</sub></p>
 
 
 ---
