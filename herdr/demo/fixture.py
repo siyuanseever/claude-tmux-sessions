@@ -4,7 +4,7 @@
     fixture.py <假 HOME> <插件目录>     → 打印会话 id
 
 里面没有任何真实的会话、路径或账号：对话是编的，账号是 you@example.com，额度读数是写死的。
-额度读数的时间是「刚刚」，所以插件不会在演示时去查真实额度（30 分钟内不查）。
+额度是写进假 .claude.json 的缓存（插件默认只读这份，不去查真实额度）。
 """
 import json
 import subprocess
@@ -90,20 +90,15 @@ def main():
     proj = HOME / ".claude" / "projects" / ("-" + str(WORK).strip("/").replace("/", "-"))
     proj.mkdir(parents=True, exist_ok=True)
     (proj / f"{SID}.jsonl").write_text("".join(json.dumps(e) + "\n" for e in transcript()))
-    (HOME / ".claude.json").write_text(json.dumps({"oauthAccount": {"emailAddress": "you@example.com"}}))
     (HOME / ".claude" / "settings.json").write_text(json.dumps({"autoCompactWindow": 400_000}))
 
-    # 额度读数：「刚刚」查过，插件 30 分钟内不会再去查（演示时不碰真实账号）
-    state = HOME / ".local" / "state" / "herdr" / "plugins" / "claude-trail"
-    state.mkdir(parents=True, exist_ok=True)
-    sys.path.insert(0, str(PLUGIN))
-    from core import claude
-    claude.USAGE_DIR = state
+    # 额度：写进假 .claude.json 的 cachedUsageUtilization（插件默认只读 Claude Code 的这份缓存，不碰任何凭据）
     now = datetime.now(timezone.utc)
-    usage = {"five_hour": {"utilization": 38.0, "resets_at": (now + timedelta(hours=2, minutes=14)).isoformat()},
-             "seven_day": {"utilization": 21.0, "resets_at": (now + timedelta(days=4, hours=6)).isoformat()},
-             "attempted_at_ms": int(time.time() * 1000), "fetched_at_ms": int(time.time() * 1000)}
-    claude.usage_file(HOME / ".claude").write_text(json.dumps(usage))
+    cache = {"fetchedAtMs": int(time.time() * 1000) - 120_000, "accountUuid": "demo-account",
+             "utilization": {"five_hour": {"utilization": 38, "resets_at": (now + timedelta(hours=2, minutes=14)).isoformat()},
+                             "seven_day": {"utilization": 21, "resets_at": (now + timedelta(days=4, hours=6)).isoformat()}}}
+    (HOME / ".claude.json").write_text(json.dumps({"oauthAccount": {"emailAddress": "you@example.com", "accountUuid": "demo-account"},
+                                                   "cachedUsageUtilization": cache}))
 
     # herdr 和插件的配置：图标用 unicode 档，渲染时不依赖 Nerd Font 字体
     cfg = HOME / ".config" / "herdr"

@@ -14,6 +14,7 @@ import subprocess
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 from .i18n import t as _t
@@ -59,25 +60,31 @@ def claude_json(cfg_dir):
     return Path.home() / ".claude.json" if Path(cfg_dir) == DEFAULT_CFG else Path(cfg_dir) / ".claude.json"
 
 
-_ACCT = {}
+_CJ = {}
 
 
-def current_account(cfg_dir=DEFAULT_CFG):
-    """这个配置目录登的是哪个账号，取邮箱 @ 前面那段。按文件和 mtime 缓存——这文件几十 MB，每次渲染都读太浪费。"""
+def _claude_json(cfg_dir):
+    """.claude.json 里要用的两段：登录账号、Claude Code 自己缓存的额度。按 mtime 缓存，只留这两段，
+    这文件可能很大，每次渲染都读太浪费。"""
     conf = claude_json(cfg_dir)
     try:
         mt = conf.stat().st_mtime
     except OSError:
-        return ""
-    hit = _ACCT.get(conf)
+        return {}
+    hit = _CJ.get(conf)
     if not hit or hit[0] != mt:
         try:
-            a = json.loads(conf.read_text()).get("oauthAccount") or {}
-            name = (a.get("emailAddress") or "").split("@")[0]
+            d = json.loads(conf.read_text())
+            keep = {"oauthAccount": d.get("oauthAccount") or {}, "cachedUsageUtilization": d.get("cachedUsageUtilization")}
         except (OSError, ValueError):
-            name = ""
-        hit = _ACCT[conf] = (mt, name)
+            keep = {}
+        hit = _CJ[conf] = (mt, keep)
     return hit[1]
+
+
+def current_account(cfg_dir=DEFAULT_CFG):
+    """这个配置目录登的是哪个账号，取邮箱 @ 前面那段。"""
+    return ((_claude_json(cfg_dir).get("oauthAccount") or {}).get("emailAddress") or "").split("@")[0]
 
 
 def short_account(cfg_dir):
@@ -189,7 +196,37 @@ def usage_file(cfg_dir):
     return USAGE_DIR / f"usage-{key}.json"
 
 
+LIVE = False             # 适配层按配置 live_usage 打开：自己去查真实额度（读钥匙串里的令牌）。默认只读 Claude Code 的缓存
+
+
+def cached_usage(cfg_dir):
+    """Claude Code 自己缓存在 .claude.json 里的额度（cachedUsageUtilization），不碰任何凭据。
+
+    它只在 Claude Code 自己去查（比如你跑 /usage）时才更新，可能是好几天前的：表头会写出多久前（fetched_at_ms）。
+    重置时间已经过了的窗口，旧百分比不作数，当成没有读数（画成「?」）。缓存不是当前登录的这个账号的
+    （换过 /login），整个不用。"""
+    d = _claude_json(cfg_dir)
+    c = d.get("cachedUsageUtilization") or {}
+    me = (d.get("oauthAccount") or {}).get("accountUuid")
+    if not c or (me and c.get("accountUuid") and c.get("accountUuid") != me):
+        return None
+    out = {"fetched_at_ms": c.get("fetchedAtMs") or 0, "source": "cache"}
+    now = time.time()
+    for w in WINDOWS:
+        win = (c.get("utilization") or {}).get(w) or {}
+        try:
+            fresh = datetime.fromisoformat(win.get("resets_at") or "").timestamp() > now
+        except (TypeError, ValueError):
+            fresh = False
+        out[w] = {"utilization": win.get("utilization") if fresh else None,
+                  "resets_at": win.get("resets_at") if fresh else None}
+    return out
+
+
 def read_usage(cfg_dir):
+    """表头用的额度：默认 Claude Code 的缓存；打开 LIVE 后读自己查到的（refresh_usage 写的那份）。"""
+    if not LIVE:
+        return cached_usage(cfg_dir)
     try:
         return json.loads(usage_file(cfg_dir).read_text())
     except (OSError, ValueError):
@@ -257,7 +294,9 @@ def _fetch(cfg_dir):
 
 
 def refresh_usage(cfg_dir, force=False):
-    """去查一次这个账号的真实额度（Claude Code 的 /usage 也是调这个接口，不是公开文档里的 API，变了就安静地失败）。
+    if not LIVE:                                # 没打开实时查询：一个请求都不发、不读钥匙串
+        return
+    """（LIVE 打开时）去查一次这个账号的真实额度（Claude Code 的 /usage 也是调这个接口，不是公开文档里的 API，变了就安静地失败）。
 
     自动刷新最多每 INTERVAL 一次（失败的也算），手动的两次至少隔 FORCE_GAP 秒；同一个账号有好几个
     轨迹同时在看时，用文件锁串起来，只发一个请求。要 ~2 秒，调用方放后台线程里跑。"""
@@ -294,5 +333,7 @@ def refresh_usage(cfg_dir, force=False):
 
 
 def usage_stale(cfg_dir):
+    if not LIVE:
+        return False
     u = read_usage(cfg_dir) or {}
     return time.time() - max(u.get("fetched_at_ms") or 0, u.get("attempted_at_ms") or 0) / 1000 > INTERVAL

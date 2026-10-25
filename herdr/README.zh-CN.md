@@ -32,7 +32,7 @@ macOS 自带的 Python 是 3.9，要先装一个新的：
 
 ```bash
 brew install python fzf          # 要默认按钮的话再加 lazygit yazi
-herdr plugin install <owner>/<repo>
+herdr plugin install siyuanseever/<repo>      # 名字还没定
 ```
 
 缺了什么，claude-trail 会说出来（herdr 通知，或者在它的窗格里写出来），不会静默失败。
@@ -58,7 +58,9 @@ Claude Code 要用全屏界面（`/tui fullscreen`），跳转滚的就是它。
 auto_open = true          # tab 里正好有一个 Claude 时自己打开
 default_mode = "wide"     # 打开时多宽："wide" 或 "narrow"
 width = 0.34              # 宽版占 Claude 那一格的比例（总会给 Claude 留 110 列）
-icons = "nerd"            # "nerd"（Nerd Font）、"unicode"（普通符号）或 "text"（全写成字）
+icons = "auto"            # "auto"：装了 Nerd Font 就用它的图标，没装用普通符号；也可以写 "nerd" / "unicode" / "text"
+                          # 装了不代表终端在用它：显示成方块就手动设 "unicode"
+live_usage = false        # true：实时查 5h / 7d 额度（见下）；false：只读 Claude Code 自己的缓存
 lang = ""                 # "en" / "zh"；不写就按系统 locale
 tab_names = true          # 没起过名的 tab 用 Claude 的会话名命名
 
@@ -83,10 +85,12 @@ icon = "files"
 ## 读什么、动什么
 
 - **读** Claude Code 的对话记录（`<配置目录>/projects/*/<会话>.jsonl`）和 `.claude.json`（取账号名）。从不写它们。
-- **额度：** 为了显示真实的 5 小时 / 7 天用量，它调 Claude Code 的 `/usage` 也在调的接口
-  （`api.anthropic.com/api/oauth/usage`），最多 30 分钟一次，用的是 Claude Code 存在 macOS 钥匙串
-  （或 `<配置目录>/.credentials.json`）里的 OAuth 令牌。令牌只在这一次请求里放在内存中，从不写下来、不打印、不刷新。
-  这个接口不是公开文档里的 API，变了的话柱子就安静地不更新。
+- **额度（默认）：** 读 Claude Code 自己缓存在 `.claude.json` 里的数字（`cachedUsageUtilization`，每个配置目录一份），
+  不碰任何凭据，也不往外发任何东西。Claude Code 只在它自己去查用量时（比如你跑 `/usage`）才更新这份缓存，
+  所以可能是好几天前的：表头会写出多久前；重置时间已经过了的窗口显示「?」，不显示旧数字。
+- **额度（`live_usage = true`）：** 调 Claude Code 的 `/usage` 也在调的接口（`api.anthropic.com/api/oauth/usage`），
+  最多 30 分钟一次，用的是 Claude Code 存在 macOS 钥匙串（或 `<配置目录>/.credentials.json`）里的 OAuth 令牌。
+  令牌只在这一次请求里放在内存中，从不写下来、不打印、不刷新。这个接口不是公开文档里的 API，变了的话柱子就安静地不更新。
 - **发键** 给 Claude 窗格只为滚屏（PageUp / PageDown / Ctrl+Home / Ctrl+End / 滚轮），从不往输入框里打字。
 - 它自己的状态放在插件的状态目录（`~/.local/state/herdr/plugins/claude-trail/`）。
 

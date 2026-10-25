@@ -50,9 +50,12 @@ DEFAULTS = {
     "auto_open": True,             # 切到有 Claude 的 tab 时自动打开
     "default_mode": "wide",        # 打开时多宽：宽版（"wide"，width 那么宽）还是窄版（"narrow"，herdr 允许的最窄）
     "width": 0.34,                 # 宽版占 Claude 那一格的比例
-    # 图标："nerd" 用 Nerd Font 字形（MesloLGS NF 之类自带）；别人没装 Nerd Font 时用 "unicode" 普通符号，
-    # 或 "text" 全部写成字
-    "icons": "nerd",
+    # 图标："auto"（默认）：本机装了 Nerd Font 就用 "nerd"，没装用 "unicode"；也可以直接写 "nerd" / "unicode" /
+    # "text"（全部写成字）。装了不代表终端在用它，显示成方块就手动设 "unicode"
+    "icons": "auto",
+    # 额度：默认只读 Claude Code 自己缓存在 .claude.json 里的读数，不碰任何凭据（只在你跑 /usage 之类时更新，可能是几天前的）。
+    # 设 true 才自己去查真实额度：读 Claude Code 存在钥匙串里的令牌，调 /usage 用的那个接口，最多 30 分钟一次
+    "live_usage": False,
     "lang": "",                    # "zh" / "en"；不写就按系统 locale
     "tab_names": True,             # 没手动起过名的 tab，用 Claude 的会话名命名（会话名变了跟着改）
     # 自定义按钮，宽版、窄版都放在最底下一行（和上面 Claude 相关的按钮分开）。两种：
@@ -78,14 +81,32 @@ def config():
         cfg["width"] = min(0.9, max(0.1, float(cfg["width"])))
     except (TypeError, ValueError):
         cfg["width"] = DEFAULTS["width"]
-    for key, allowed in (("default_mode", ("wide", "narrow")), ("icons", ("nerd", "unicode", "text"))):
+    for key, allowed in (("default_mode", ("wide", "narrow")), ("icons", ("auto", "nerd", "unicode", "text"))):
         if cfg[key] not in allowed:
             cfg[key] = DEFAULTS[key]
     return cfg
 
 
+def nerd_font_installed():
+    """本机装没装 Nerd Font：macOS 看 ~/Library/Fonts 和 /Library/Fonts 的文件名，Linux 问 fc-list。
+    只说明装了，不说明终端在用它。"""
+    import glob
+    pat = re.compile(r"nerd ?font|(^|[ _-])nf([ _.-]|$)", re.I)
+    names = [os.path.basename(f) for d in (Path.home() / "Library" / "Fonts", Path("/Library/Fonts"))
+             for f in glob.glob(str(d / "*"))]
+    if not names and shutil.which("fc-list"):
+        try:
+            names = subprocess.run(["fc-list", ":", "family"], capture_output=True, text=True, timeout=3).stdout.splitlines()
+        except (OSError, subprocess.TimeoutExpired):
+            names = []
+    return any(pat.search(n) for n in names)
+
+
 CFG = config()
 set_lang(CFG["lang"])
+if CFG["icons"] == "auto":
+    CFG["icons"] = "nerd" if nerd_font_installed() else "unicode"
+claude.LIVE = bool(CFG["live_usage"])
 FZF_COLORS = theme.apply(R)        # 颜色跟着 herdr 的主题（和左侧 Agents 栏、选中行、边框一致）
 WIDTH = CFG["width"]
 TICK = 60                          # 没有事件时多久醒一次：额度的倒计时按分钟变
@@ -418,8 +439,12 @@ class Sidebar:
         return self.tr.visible() if self.tr else []
 
     def kick_usage(self, force=False):
-        """额度旧了（默认 30 分钟）就在后台线程里去查一次；core.claude.refresh_usage 自己还会再节流一道
+        """（live_usage 打开时）额度旧了（默认 30 分钟）就在后台线程里去查一次；core.claude.refresh_usage 自己还会再节流一道
         （同一个账号的几个轨迹用文件锁串起来，失败的也算），这里多叫一次不会多发请求。"""
+        if not claude.LIVE:
+            if force:                         # 点了刷新：读一下最新的缓存，顺便说怎么打开实时查询
+                self.say(_t("额度来自 Claude Code 的缓存；要实时查询，在配置里设 live_usage = true"), 8)
+            return
         if not force and (not claude.usage_stale(self.cfg_dir) or time.monotonic() - self.usage_kick < 60):
             return
         self.usage_kick = time.monotonic()

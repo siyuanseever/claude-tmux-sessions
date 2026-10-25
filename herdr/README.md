@@ -36,7 +36,7 @@ default buttons. On macOS the system Python is 3.9, so install a newer one first
 
 ```bash
 brew install python fzf          # lazygit yazi, if you want the default buttons
-herdr plugin install <owner>/<repo>
+herdr plugin install siyuanseever/<repo>      # name not final yet
 ```
 
 If something is missing, claude-trail says so (a herdr notification, or a message in its pane) instead of failing silently.
@@ -63,7 +63,9 @@ broken file means defaults.
 auto_open = true          # open by itself in a tab that has exactly one Claude
 default_mode = "wide"     # width when it opens: "wide" or "narrow"
 width = 0.34              # wide view, as a share of the Claude pane (Claude always keeps 110 columns)
-icons = "nerd"            # "nerd" (Nerd Font), "unicode" (plain symbols) or "text"
+icons = "auto"            # "auto": Nerd Font icons if one is installed, else plain symbols;
+                          # or "nerd" / "unicode" / "text". Installed is not in use: if you see boxes, set "unicode"
+live_usage = false        # true: ask for live 5h / 7d quota (see below); false: Claude Code's own cache
 lang = ""                 # "en" / "zh"; empty follows your locale
 tab_names = true          # name an unnamed tab after the Claude session
 
@@ -89,7 +91,11 @@ icon = "files"
 
 - **Reads** Claude Code's transcripts (`<config dir>/projects/*/<session>.jsonl`) and `.claude.json` (for the
   account name). It never writes them.
-- **Quota:** to show real 5-hour / 7-day usage, it asks the same endpoint Claude Code's `/usage` uses
+- **Quota, by default:** the numbers Claude Code itself caches in `.claude.json` (`cachedUsageUtilization`, one per
+  config dir). No credentials are touched and nothing is sent anywhere. Claude Code refreshes that cache only when it
+  asks for usage (for example when you run `/usage`), so it can be days old: the header says how old, and a window
+  whose reset time has passed shows `?` instead of a stale number.
+- **Quota, with `live_usage = true`:** it asks the same endpoint Claude Code's `/usage` uses
   (`api.anthropic.com/api/oauth/usage`), at most every 30 minutes, with the OAuth token Claude Code keeps in the
   macOS Keychain (or `<config dir>/.credentials.json`). The token stays in memory for that one request; it is never
   written, logged or refreshed. The endpoint is not a documented public API, so if it changes the bars just go quiet.

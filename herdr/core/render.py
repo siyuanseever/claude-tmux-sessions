@@ -218,7 +218,10 @@ def usage_state(u, now):
         return f"{USED_C}{_t('刚刚更新')}{RESET}"
     if age < 3600:
         return f"{DIMC}{_t('{n} 分钟前').format(n=age // 60)}{RESET}"
-    return f"{DIMC}{_t('{n} 小时前').format(n=min(age // 3600, 99))}{RESET}"
+    if age < 2 * 86400:
+        return f"{DIMC}{_t('{n} 小时前').format(n=age // 3600)}{RESET}"
+    # Claude Code 的额度缓存可能是好几天前的：旧到这个程度要看得出来，所以单独标颜色
+    return f"{WARN_C}{_t('{n} 天前').format(n=min(age // 86400, 99))}{RESET}"
 
 
 def status_lines(width, model, ctx, usage, account, compact_at, hard):

@@ -46,3 +46,5 @@ fzf 要 {need} 以上，现在是 {have}	fzf {need}+ required, found {have}
 （Claude 还在干活…）	(Claude is still working…)
 （{p}）	({p})
 （没有文字回复）	(no text reply)
+{n} 天前	{n}d ago
+额度来自 Claude Code 的缓存；要实时查询，在配置里设 live_usage = true	quota from Claude Code's cache; set live_usage = true for live numbers
