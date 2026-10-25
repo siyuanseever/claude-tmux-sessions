@@ -7,6 +7,6 @@
     i18n.py         中英文界面
 
 适配层（herdr 插件是 ../trail.py）只管：读屏、发键、开窗格、收事件、画 fzf。
-这些代码最早来自 tmux 版（threedaycat/claude-tmux-sessions 的 sidebar/、hooks/ctx_to_tmux.py、bin/usage-refresh.py），
+这些代码最早来自 tmux 版（siyuanseever/claude-tmux-sessions 的 sidebar/、hooks/ctx_to_tmux.py、bin/usage-refresh.py），
 两边切出来的轮次一致；tmux 版保持原样，两边不再共享代码。
 """
