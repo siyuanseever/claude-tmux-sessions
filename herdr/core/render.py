@@ -18,7 +18,9 @@ TIME_C = "\033[38;2;0;135;215m"    # 蓝：窗口已经走过的时间 / 自动�
 GREY = "\033[38;2;108;108;108m"
 DIMC = "\033[38;2;88;88;88m"
 CYAN = "\x1b[36m"
-COLORS = ("USED_C", "WARN_C", "ALERT_C", "TIME_C", "GREY", "DIMC", "CYAN")
+BUSY_C = WARN_C                    # 状态：工作中（窄版的状态点、还在干活的那一轮）
+DONE_C = DIMC                      # 状态：完成 / 空闲
+COLORS = ("USED_C", "WARN_C", "ALERT_C", "TIME_C", "GREY", "DIMC", "CYAN", "BUSY_C", "DONE_C")
 
 
 def set_colors(**colors):
@@ -330,6 +332,6 @@ def narrow_rows_of(stops, busy, width, expanded=False, missing=frozenset()):
         if st["compacted"] and not expanded:
             continue
         ask = oneline(st["prompt"]) if st["kind"] == "human" else _t("（{p}）").format(p=st["prompt"])
-        colour = (WARN_C if busy and n == len(stops) else DIMC if st["id"] in missing else "")
+        colour = (BUSY_C if busy and n == len(stops) else DIMC if st["id"] in missing else "")
         out.append(f"{st['id']}\t" + clip(f"{DIMC}#{n}{RESET} {colour}{ask}", room) + RESET)
     return "\0".join(out)

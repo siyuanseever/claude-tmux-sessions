@@ -27,6 +27,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from core import claude, jump, render as R  # noqa: E402
+import theme                                 # noqa: E402
 from core.i18n import set_lang, t as _t     # noqa: E402
 from core.transcript import ClaudeTranscript, reader_for  # noqa: E402,F401  ClaudeTranscript 给测试脚本用
 
@@ -79,6 +80,7 @@ def config():
 
 CFG = config()
 set_lang(CFG["lang"])
+FZF_COLORS = theme.apply(R)        # 颜色跟着 herdr 的主题（和左侧 Agents 栏、选中行、边框一致）
 WIDTH = CFG["width"]
 TICK = 60                          # 没有事件时多久醒一次：额度的倒计时按分钟变
 WIDE_MIN = 30                      # 轨迹窗格（tty）至少这么宽才画宽版，窄了画窄版（拖分隔线时跟着变）
@@ -175,8 +177,9 @@ def button_icon(b):
     return icon(ic) if ic in ICONS else ic
 
 
-STATUS = {"working": ("working", "WARN_C"), "blocked": ("blocked", "ALERT_C"),
-          "done": ("done", "DIMC"), "idle": ("done", "DIMC")}
+# 状态的颜色和 herdr 左侧 Agents 栏一致：工作中 yellow、等你 red、完成 green（theme.apply 换上去的）
+STATUS = {"working": ("working", "BUSY_C"), "blocked": ("blocked", "ALERT_C"),
+          "done": ("done", "DONE_C"), "idle": ("done", "DONE_C")}
 SLOT, GAP = 3, 1
 
 
@@ -604,6 +607,7 @@ class Sidebar:
             "fzf", "--read0", "--ansi", "--no-input", "--no-sort", "--layout=reverse", "--sync",
             "--track", "--id-nth=1", "--delimiter=\t", "--with-nth=2..",
             "--highlight-line", "--info=hidden", "--pointer=▌", "--no-scrollbar", "--ellipsis=…", *extra,
+            f"--color={FZF_COLORS}",
             f"--listen={self.sock}", "--header", header, "--header-border=bottom",
             # 打开时落在最后一轮；只这一次，之后刷新列表不把你拽回去
             "--bind", "load:last+unbind(load)",
