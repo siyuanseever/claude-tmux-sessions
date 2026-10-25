@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
-"""claude-trail 的 herdr 版：停在 Claude 窗格右边的轨迹侧栏（第一阶段：可行性原型）。
+"""claude-trail 的 herdr 适配层：停在 Claude 窗格右边的会话轨迹。
 
-    trail.py toggle   插件动作：焦点所在的 Claude 还没有轨迹就开一个，有了就在宽版 / 窄版之间切换
+    trail.py toggle   插件动作：焦点所在的 Claude 还没有轨迹就开一个，有了就在宽版 / 窄版宽度之间拉
     trail.py auto     事件钩子：tab 里有 Claude 时自动打开
-    trail.py pane     侧栏窗格本体（herdr 按 manifest 的 [[panes]] 起它）：这个进程 + 一个 fzf
+    trail.py pane     轨迹窗格本体（herdr 按 manifest 的 [[panes]] 起它）：这个进程 + 一个 fzf
 
-和 tmux 版的分工不一样。tmux 版是一个常驻进程每秒 `tmux list-panes` 轮询所有窗格；这里每个侧栏
-自己带一个小进程，订阅 herdr 的事件（Claude 状态变了、窗格关了），没事件时阻塞在 select 上。
-会话 id 直接问 herdr（`pane.get` 的 agent_session），不要 tmux 版的钩子和状态文件。
-
-解析对话记录、列表和表头的额度柱子直接 import tmux 版 sidebar/ 下的代码，一行不改它；
-跳转的算法照搬 claude_trail.cmd_jump，只是读屏 / 发键换成 herdr 的 socket（一次 0.3ms，tmux 一次 ~8ms）。
+每个轨迹自己带一个小进程，订阅 herdr 的事件（Claude 状态变了、窗格关了），没事件时阻塞在 select 上。
+会话 id 直接问 herdr（`pane.get` 的 agent_session），不需要钩子和状态文件。读屏 / 发键走 herdr 的 socket
+（一次 0.3ms）。读对话记录、切轮次、画柱子、跳转算法都在 core/ 里，这里只管和 herdr 打交道。
 """
 import http.client
 import json
 import os
 import re
 import select
+import shlex
 import shutil
 import signal
 import socket
@@ -24,37 +22,35 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import datetime
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parent
-sys.path.insert(0, str(REPO / "sidebar"))
-sys.path.insert(0, str(REPO / "hooks"))
-import claude_trail as ct  # noqa: E402
-import trail_daemon as td  # noqa: E402  只用它的 Transcript / rows_of（增量解析、两行一项的列表）
-import ctx_to_tmux as cx   # noqa: E402  只用它的 last_usage / short_model（模型和上下文大小）
-from i18n import t as _t   # noqa: E402
+sys.path.insert(0, str(HERE))
+from core import claude, jump, render as R  # noqa: E402
+from core.i18n import set_lang, t as _t     # noqa: E402
+from core.transcript import ClaudeTranscript, reader_for  # noqa: E402,F401  ClaudeTranscript 给测试脚本用
 
 PLUGIN_ID = os.environ.get("HERDR_PLUGIN_ID") or "claude-trail"
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or str(Path.home() / ".config" / "herdr" / "herdr.sock")
 STATE = Path(os.environ.get("HERDR_PLUGIN_STATE_DIR")
              or Path.home() / ".local" / "state" / "herdr" / "plugins" / PLUGIN_ID)
-RUN = STATE / "run"                # <侧栏窗格>.json / .fifo / .sock / .rows
-JUMP_LOG = STATE / "jump.log"      # 每次跳转一行：用了多久、找到没有（验收要的数字）
+RUN = STATE / "run"                # <轨迹窗格>.json / .fifo / .sock / .rows
+JUMP_LOG = STATE / "jump.log"      # 每次跳转一行：用了多久、找到没有
 EVENT_LOG = STATE / "events.log"   # 自动打开收到的事件（文档没写 HERDR_PLUGIN_EVENT_JSON 的结构，先记下来）
-MIN_WIDTH = 120                    # Claude 那一格至少这么宽才自动开，和 tmux 版一样
+claude.USAGE_DIR = STATE           # 额度读数存在插件自己的状态目录
+MIN_WIDTH = 120                    # Claude 那一格至少这么宽才自动开
 CONFIG_DIR = Path(os.environ.get("HERDR_PLUGIN_CONFIG_DIR")
                   or Path.home() / ".config" / "herdr" / "plugins" / "config" / PLUGIN_ID)
 # 配置（<配置目录>/config.toml，`herdr plugin config-dir claude-trail` 打印这个目录）。文件不存在就全用默认值。
-# 这一阶段只开放确有需要的几项：按钮列表、自动打开、默认宽版还是窄版、宽版宽度、图标字体。
+# 这一阶段只开放确有需要的几项：按钮列表、自动打开、默认宽版还是窄版、宽版宽度、图标字体、界面语言。
 DEFAULTS = {
     "auto_open": True,             # 切到有 Claude 的 tab 时自动打开
     "default_mode": "wide",        # 打开时多宽：宽版（"wide"，width 那么宽）还是窄版（"narrow"，herdr 允许的最窄）
-    "width": 0.34,                 # 宽版占 Claude 那一格的比例，和 tmux 版的 -l 34% 一样
+    "width": 0.34,                 # 宽版占 Claude 那一格的比例
     # 图标："nerd" 用 Nerd Font 字形（MesloLGS NF 之类自带）；别人没装 Nerd Font 时用 "unicode" 普通符号，
     # 或 "text" 全部写成字
     "icons": "nerd",
+    "lang": "",                    # "zh" / "en"；不写就按系统 locale
     # 宽版表头第 1 行、窄版底部的按钮：在 Claude 那一格的目录里，用本插件的浮窗跑 command（经 sh -c）。
     # icon 可选：写 ICONS 里的名字（"git"、"files"…）就按 icons 那一档取字形，也可以直接写一个字形
     "buttons": [{"label": "Git", "command": "lazygit", "icon": "git"},
@@ -82,14 +78,14 @@ def config():
 
 
 CFG = config()
+set_lang(CFG["lang"])
 WIDTH = CFG["width"]
 TICK = 60                          # 没有事件时多久醒一次：额度的倒计时按分钟变
 WIDE_MIN = 30                      # 轨迹窗格（tty）至少这么宽才画宽版，窄了画窄版（拖分隔线时跟着变）
 FRAME = 2                          # herdr 给窗格画的边框：tty 比 pane.layout 报的矩形窄 2 列、矮 2 行（实测 51 → 49）
-GONE_GRACE = 15                    # Claude 退出后等多少秒才关侧栏：切账号时 Claude 会退出再重启
+GONE_GRACE = 15                    # Claude 退出后等多少秒才关轨迹：切账号时 Claude 会退出再重启
 LATER = (0.5, 1.5)                 # Claude 状态变了之后再补刷几次：Stop 时最后那条回复还没写进对话记录
 VERSION = re.compile(r"^\d+\.\d+\.\d+$")   # Claude Code 的进程名是版本号
-AT_BOTTOM = "Jump to bottom"       # Claude 往上翻了才在底部显示这句；没有就是在最底
 
 
 # ---- herdr socket --------------------------------------------------------------
@@ -119,7 +115,7 @@ def pane_info(pane):
 
 
 def session_id(info):
-    if not info or info.get("agent") != "claude":
+    if not info or not reader_for(info.get("agent")):
         return None
     return (info.get("agent_session") or {}).get("value")
 
@@ -129,18 +125,6 @@ def notify(title, body=None):
         call("notification.show", title=title, body=body, sound="none")
     except (OSError, ValueError, HerdrError):
         pass
-
-
-# ---- 哪个账号、哪份对话记录 ------------------------------------------------------
-
-def config_dirs():
-    """可能的 CLAUDE_CONFIG_DIR：默认的 ~/.claude，加上 ~/.claude-*（一个账号一个目录，比如 ~/.claude-l2）。
-    CLAUDE_TRAIL_CONFIG_DIRS（冒号分隔）可以改。"""
-    env = os.environ.get("CLAUDE_TRAIL_CONFIG_DIRS")
-    if env:
-        return [Path(os.path.expanduser(d)) for d in env.split(":") if d]
-    extra = sorted(d for d in Path.home().glob(".claude-*") if (d / "projects").is_dir())
-    return [ct.DEFAULT_CFG, *extra]
 
 
 def claude_pid(pane):
@@ -154,66 +138,27 @@ def claude_pid(pane):
     return None
 
 
-def config_dir(pane):
-    """这个窗格里的 Claude 用的是哪个配置目录（决定账号和额度读谁的）。
+# ---- 图标、按钮 ------------------------------------------------------------------
 
-    tmux 版靠钩子把 CLAUDE_CONFIG_DIR 写到窗格选项上；这里不装钩子：Claude Code 自己会给每个
-    进程写 <配置目录>/sessions/<pid>.json，看这个文件落在哪个目录就知道了。"""
-    pid = claude_pid(pane)
-    if pid:
-        for d in config_dirs():
-            if (d / "sessions" / f"{pid}.json").exists():
-                return d
-    return ct.DEFAULT_CFG
-
-
-def transcript_path(sid, cfg_dir):
-    """先在它自己的配置目录里找，再找别的（两个目录的 projects 可能是同一个软链）。"""
-    for d in [cfg_dir, *(x for x in config_dirs() if x != cfg_dir)]:
-        hits = sorted((d / "projects").glob(f"*/{sid}.jsonl"), key=lambda p: p.stat().st_mtime)
-        if hits:
-            return hits[-1]
-    return None
-
-
-def cfg_key(cfg_dir):
-    """claude_trail 里配置目录的写法：默认那套是空串。"""
-    return "" if Path(cfg_dir) == ct.DEFAULT_CFG else str(cfg_dir)
-
-
-def model_ctx(path):
-    """(`Opus 5.5/high`, `11% (111k)`)：tmux 版由 ctx_to_tmux.py 写到窗格选项上，这里直接从对话记录读。"""
-    tokens, mid, effort = cx.last_usage(str(path))
-    name = cx.short_model(mid)
-    if name and effort:
-        name += "/" + effort
-    if tokens is None:
-        return name, ""
-    window = 200_000 if mid and "haiku" in mid else 1_000_000
-    return name, f"{tokens * 100 // window}% ({tokens // 1000}k)"
-
-
-# ---- 表头 ------------------------------------------------------------------------
-
-# 图标：宽版、窄版里能用图标说清楚的都用图标（Nerd Font 的字形在私用区，终端按 1 格宽画）。
+# 能用图标说清楚的都用图标（Nerd Font 的字形在私用区，终端按 1 格宽画）。
 # 别人不一定装了 Nerd Font，所以配置 icons 可以换成普通 Unicode 符号，或者全写成字。
 ICONS = {
     #          nerd       unicode  text
-    "narrow":  ("\uf101", "»",     ">>"),       # 宽版左上角：切到窄版
-    "wide":    ("\uf100", "«",     "<<"),       # 窄版左上角：切到宽版
-    "bottom":  ("\uf103", "⇊",     "End"),      # 主界面到最底
-    "usage":   ("\uf021", "⟳",     "Ref"),      # 马上查一次额度
-    "working": ("\uf110", "◐",     "工作中"),
-    "blocked": ("\uf059", "◆",     "等你"),
-    "done":    ("\uf00c", "✓",     "完成"),
-    "unknown": ("\uf10c", "○",     "—"),
-    "model":   ("\uf0e7", "✦",     ""),         # 模型前面的标记
-    "account": ("\uf007", "@",     ""),         # 账号前面的标记
-    "ctx":     ("\uf2db", "◧",     "ctx"),
-    "5h":      ("\uf017", "◷",     "5h"),
-    "7d":      ("\uf073", "▦",     "7d"),
-    "git":     ("\ue702", "±",     ""),         # 文字档不另加图标，按钮本身就有字
-    "files":   ("\uf07c", "▤",     ""),
+    "narrow":  ("", "»",     ">>"),       # 宽版左上角：拉到窄版
+    "wide":    ("", "«",     "<<"),       # 窄版左上角：拉回宽版
+    "bottom":  ("", "⇊",     "End"),      # 主界面到最底
+    "usage":   ("", "⟳",     "Ref"),      # 马上查一次额度
+    "working": ("", "◐",     "工作中"),
+    "blocked": ("", "◆",     "等你"),
+    "done":    ("", "✓",     "完成"),
+    "unknown": ("", "○",     "—"),
+    "model":   ("", "✦",     ""),         # 模型前面的标记
+    "account": ("", "@",     ""),         # 账号前面的标记
+    "ctx":     ("", "◧",     "ctx"),
+    "5h":      ("", "◷",     "5h"),
+    "7d":      ("", "▦",     "7d"),
+    "git":     ("", "±",     ""),         # 文字档不另加图标，按钮本身就有字
+    "files":   ("", "▤",     ""),
 }
 _TIER = ("nerd", "unicode", "text").index(CFG["icons"])
 
@@ -232,6 +177,7 @@ def button_icon(b):
 
 STATUS = {"working": ("working", "WARN_C"), "blocked": ("blocked", "ALERT_C"),
           "done": ("done", "DIMC"), "idle": ("done", "DIMC")}
+SLOT, GAP = 3, 1
 
 
 def tool_buttons():
@@ -240,30 +186,33 @@ def tool_buttons():
     return [(button_icon(b) or b["label"], f"tool:{i}") for i, b in enumerate(CFG["buttons"])]
 
 
-# 宽版表头第 1 行的按钮，格子的宽度、点偏一格也算的规矩和 tmux 版一样（tmux 版按钮在第 2 行）。
-# 最左上角是「切到窄版」（»），窄版的「切回宽版」（«）也在同一个位置（第 1 行第 4 列）。没有「关闭」：
+# 宽版表头第 1 行的按钮，格子的宽度、点偏一格也算的规矩和 tmux 版一样。
+# 最左上角是「拉到窄版」（»），窄版的「拉回宽版」（«）也在同一个位置（第 1 行第 4 列）。没有「关闭」：
 # 关掉之后鼠标就没有地方再把它点出来了（herdr 的右键菜单是写死的，插件动作进不去，
 # 见 herdr v0.9.5 src/client/shell/context_menu.rs:59-78）。
-# 配置里的按钮（默认 Git = lazygit、文件 = yazi）跟在后面：tmux 版的 git / 文件走 float-tool.sh（tmux 专用），
-# 这里是本插件自己的浮窗，不依赖别的 herdr 插件。切账号（tmux 版的 ⇄）第一阶段不做。
+# 配置里的按钮（默认 Git = lazygit、文件 = yazi）跟在后面，是本插件自己的浮窗，不依赖别的 herdr 插件。
 def wide_buttons():
     return [(icon("narrow"), "narrow", 0), (icon("bottom"), "bottom", 0),
             *((t, a, 0) for t, a in tool_buttons()), (icon("usage"), "usage", 10)]
 
 
+def narrow_footer():
+    return [(t, a, 0) for t, a in tool_buttons()]
+
+
 def _cell_w(text):
     """图标按钮占 3 格（空格 + 图标 + 空格）；带字的按钮按字宽，两边各留一格。"""
-    return max(ct.SLOT, ct._cols(text) + 2)
+    return max(SLOT, R.cols(text) + 2)
 
 
 def buttons_line(buttons, u=None):
     cells = []
     for text, act, extra in buttons:
         w = _cell_w(text)
-        pad = (w - ct._cols(text)) // 2
-        cells.append(" " * pad + text + " " * (w - ct._cols(text) - pad)
-                     + ct._fit(ct.usage_state(u) if act == "usage" else "", extra))
-    return (" " * ct.GAP).join(cells)
+        pad = (w - R.cols(text)) // 2
+        cells.append(" " * pad + text + " " * (w - R.cols(text) - pad)
+                     + R.fit(R.usage_state(u, time.time()) if act == "usage" else "", extra))
+    return (" " * GAP).join(cells)
 
 
 def button_at(buttons, col):
@@ -272,66 +221,14 @@ def button_at(buttons, col):
         w = _cell_w(text) + extra
         if x <= col < x + w:
             return act
-        x += w + ct.GAP
+        x += w + GAP
     return None
-
-
-def narrow_footer():
-    return [(t, a, 0) for t, a in tool_buttons()]
 
 
 def short_model(model):
     """`Opus 5.5/high` → `Opus5.5/hi`：窄版一行只有十来列。"""
     name, _, effort = (model or "").partition("/")
     return name.replace(" ", "") + (f"/{effort[:2]}" if effort else "")
-
-
-def short_account(cfg_dir):
-    """账号缩写：和别的账号比，只留不一样的那截（you.a / you.b → a / b），规矩和 tmux 版的账号按钮一样。"""
-    me = ct.current_account(cfg_key(cfg_dir))
-    others = [ct.current_account(cfg_key(d)) for d in config_dirs() if d != Path(cfg_dir)]
-    others = [o for o in others if o and o != me]
-    if not me or not others:
-        return me
-    pre = os.path.commonprefix([me, *others])
-    return me[pre.rfind(".") + 1:] if "." in pre else me
-
-
-def _clip(text, width):
-    """按显示宽度截（中文算两格），保住颜色收尾。"""
-    plain = ct.ANSI.sub("", text)
-    if ct._cols(plain) <= width:
-        return text
-    out, w = "", 0
-    for ch in plain:
-        if w + ct._cols(ch) > width:
-            break
-        out, w = out + ch, w + ct._cols(ch)
-    return out
-
-
-def quota_pct(u, label, key):
-    """(百分比, 颜色)：颜色和表头柱子同一套规则（claude_trail.quota_colour，按超前匀速线多少）。"""
-    w = (u or {}).get(key) or {}
-    pct = w.get("utilization")
-    if pct is None:
-        return None
-    frac, mark = float(pct) / 100, None
-    try:
-        left = (datetime.fromisoformat(w.get("resets_at") or "") - datetime.now().astimezone()).total_seconds()
-        mark = 1.0 - max(0.0, min(1.0, left / ct.WINDOW_SECS[label]))
-    except (TypeError, ValueError):
-        pass
-    return float(pct), ct.quota_colour(frac, mark)
-
-
-def ctx_pct(ctx):
-    """(百分比, 颜色)：和 claude_trail._ctx_line 一样，按离自动压缩那条线多远：过八成橙、过线红。"""
-    m = ct.CTX_RE.search(ctx or "")
-    if not m:
-        return None
-    tokens, line = int(m.group(2)) * 1000, ct._auto_compact_at() or ct.CTX_HARD
-    return int(m.group(1)), ct.ALERT_C if tokens >= line else ct.WARN_C if tokens >= line * 0.8 else ct.USED_C
 
 
 def fzf(sock, action):
@@ -355,7 +252,26 @@ def _q(path):
     return "'" + str(path).replace("'", "'\\''") + "'"
 
 
-# ---- 侧栏本体 --------------------------------------------------------------------
+# ---- 读屏 / 发键（给 core.jump 用）-------------------------------------------------
+
+class HerdrTerm:
+    # herdr 的 send-keys 不认 Home / End / PageUp / PageDown（报 invalid_key），直接发终端的转义序列
+    KEYS = {"C-Home": "\x1b[1;5H", "C-End": "\x1b[1;5F", "PageUp": "\x1b[5~", "PageDown": "\x1b[6~"}
+
+    def __init__(self, pane):
+        self.pane = pane
+        info = pane_info(pane) or {}
+        self.height = (info.get("scroll") or {}).get("viewport_rows") or 40
+
+    def screen(self):
+        return call("pane.read", pane_id=self.pane, source="visible")["read"]["text"]
+
+    def send(self, *keys):
+        """所有按键拼成一次 send_text。keys 里不在 KEYS 表里的原样发（滚轮的鼠标序列）。"""
+        call("pane.send_text", pane_id=self.pane, text="".join(self.KEYS.get(k, k) for k in keys))
+
+
+# ---- 轨迹本体 --------------------------------------------------------------------
 
 class Sidebar:
     def __init__(self, target, me):
@@ -365,31 +281,31 @@ class Sidebar:
         self.reg, self.fifo = base.with_suffix(".json"), base.with_suffix(".fifo")
         self.sock, self.rows_file = base.with_suffix(".sock"), base.with_suffix(".rows")
         self.sid = self.path = self.tr = None
-        self.cfg_dir, self.status = ct.DEFAULT_CFG, None
+        self.cfg_dir, self.status = claude.DEFAULT_CFG, None
         self.opened, self.expanded = None, False
         self.missing = set()
         self.pushed = (None, None)            # 上次推给 fzf 的 (列表, 表头)
-        self.flash = None                     # (一句提示, 到什么时候为止)：tmux 版的 display-message
+        self.flash = None                     # (一句提示, 到什么时候为止)
         self.mc = (None, ("", ""))            # (对话记录大小, model_ctx)：没变就不重读尾巴
         self.due = []                         # 预约的补刷时间
         self.usage_kick = 0.0
         self.jump_token = 0
-        self.proc, self.wide = None, None      # self.wide：宽版上次的列数，从窄版切回去时还原
+        self.proc, self.wide = None, None     # self.wide：宽版上次的列数，从窄版切回去时还原
         self.mode = None                      # "wide" / "narrow"：按窗格实际宽度定（mode_for），不是按钮切的
         self.no_claude_since = None           # 这一格里从什么时候起不是 Claude 了
-        self.wake_r, self.wake_w = os.pipe()  # 跳转线程 / 信号 叫醒主循环
+        self.wake_r, self.wake_w = os.pipe()  # 跳转线程 / 额度线程 / 信号 叫醒主循环
         os.set_blocking(self.wake_w, False)
 
     # -- 状态 --
 
     def refresh(self):
-        """问 herdr 这个 Claude 现在什么状态、跑的哪个会话，读对话记录新追加的部分，推给 fzf。
+        """问 herdr 这个 Claude 现在什么状态、跑的哪个会话，读对话记录新追加的部分。
         返回 False = Claude 那一格已经没了。"""
         info = pane_info(self.target)
         if info is None:
             return False
         self.status = info.get("agent_status")
-        if info.get("agent") == "claude":
+        if reader_for(info.get("agent")):
             self.no_claude_since = None
         elif self.no_claude_since is None:    # Claude 退出了（切账号重启那几秒也会这样，所以等一会儿再关）
             self.no_claude_since = time.monotonic()
@@ -400,11 +316,11 @@ class Sidebar:
             self.opened, self.expanded, self.mc = None, False, (None, ("", ""))
             self.missing = set()
             if sid:
-                self.cfg_dir = config_dir(self.target)
+                self.cfg_dir = claude.config_dir_of_pid(claude_pid(self.target))
         if self.sid and self.path is None:    # 新会话第一条消息之前还没有文件，下次再找
-            self.path = transcript_path(self.sid, self.cfg_dir)
+            self.path = claude.transcript_path(self.sid, self.cfg_dir)
             if self.path:
-                self.tr = td.Transcript(self.path)
+                self.tr = reader_for(info.get("agent"))(self.path)
         if self.tr:
             self.tr.update()
         return True
@@ -412,27 +328,25 @@ class Sidebar:
     def busy(self):
         return self.status in ("working", "blocked")
 
+    def stops(self):
+        return self.tr.visible() if self.tr else []
+
     def kick_usage(self, force=False):
-        """额度旧了（默认 30 分钟）就让 usage-refresh.py 去查一次，判据和 trail_daemon.read_usage 一样；
-        它自己还会再节流一道（在飞的请求也算），这里多叫一次不会多发请求。"""
-        if not ct.USAGE_REFRESH.exists():
-            return
-        u = ct.read_usage(cfg_key(self.cfg_dir)) or {}
-        interval = 60 * int(os.environ.get("CLAUDE_TMUX_USAGE_REFRESH_MIN") or 30)
-        if not force and time.time() - u.get("fetched_at_ms", 0) / 1000 <= interval:
-            return
-        if not force and time.monotonic() - self.usage_kick < 60:
+        """额度旧了（默认 30 分钟）就在后台线程里去查一次；core.claude.refresh_usage 自己还会再节流一道
+        （同一个账号的几个轨迹用文件锁串起来，失败的也算），这里多叫一次不会多发请求。"""
+        if not force and (not claude.usage_stale(self.cfg_dir) or time.monotonic() - self.usage_kick < 60):
             return
         self.usage_kick = time.monotonic()
-        cmd = [sys.executable, str(ct.USAGE_REFRESH), "--config", str(self.cfg_dir)]
-        if force:
-            cmd.insert(2, "--force")
-        try:
-            subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL, start_new_session=True)
-        except OSError:
-            pass
-        self.later(3, 6)                      # 查一次两三秒，查完了表头跟上
+        cfg = self.cfg_dir
+
+        def work():
+            try:
+                claude.refresh_usage(cfg, force)
+            except OSError:
+                pass
+            os.write(self.wake_w, b"u")       # 查完了：表头跟上
+        threading.Thread(target=work, daemon=True).start()
+        self.later(0.3)                       # 先画出「查询中…」
 
     def later(self, *secs):
         now = time.monotonic()
@@ -453,84 +367,69 @@ class Sidebar:
             except OSError:
                 size = None
             if size != self.mc[0]:
-                self.mc = (size, model_ctx(self.path))
+                self.mc = (size, claude.model_ctx(self.path))
         return self.mc[1]
 
     def header(self, width):
         return self.narrow_header(width) if self.mode == "narrow" else self.wide_header(width)
 
     def narrow_header(self, width):
-        """窄版表头（自上而下）：切回宽版的 « / 状态 / 模型 / 账号 / ctx、5h、7d 百分比，下面那条边框就是分隔线。
+        """窄版表头（自上而下）：拉回宽版的 « / 状态 / 模型 / 账号 / ctx、5h、7d 百分比，下面那条边框就是分隔线。
         平时灰，快到上限才上色，规则和宽版的柱子一样。放不下的按 账号 → 模型 → 7d 的顺序丢。
         on_command 按行号认：第 1 行切换，带百分比的那几行点了查一次额度。"""
         room = max(4, width - 2)                       # fzf 表头左边留 2 列
         st, colour = STATUS.get(self.status, ("unknown", "DIMC"))
-        flash = f" {ct.WARN_C}!{ct.RESET}" if self.flash and time.monotonic() < self.flash[1] else ""
-        lines = [f" {ct.BOLD}{icon('wide')}{ct.RESET}{flash}",    # « 在第 4 列，和宽版的 » 同一个位置（fzf 表头左边留 2 列）
-                 f"{getattr(ct, colour)}{icon(st)}{ct.RESET}"]
+        flash = f" {R.WARN_C}!{R.RESET}" if self.flash and time.monotonic() < self.flash[1] else ""
+        lines = [f" {R.BOLD}{icon('wide')}{R.RESET}{flash}",    # « 在第 4 列，和宽版的 » 同一个位置（fzf 表头左边留 2 列）
+                 f"{getattr(R, colour)}{icon(st)}{R.RESET}"]
         model, ctx = self.model_ctx()
-        acct = short_account(self.cfg_dir)
-        u = ct.read_usage(cfg_key(self.cfg_dir))
+        acct = claude.short_account(self.cfg_dir)
+        u = claude.read_usage(self.cfg_dir)
         fields = []                                    # (优先级：数字小的先丢, 行)
+
         def tagged(name, text):                        # 文字档没有标记，前面就别留空格
-            return f"{ct.GREY}{icon(name) + ' ' if icon(name) else ''}{text}{ct.RESET}"
+            return f"{R.GREY}{icon(name) + ' ' if icon(name) else ''}{text}{R.RESET}"
         if model:
             fields.append((2, tagged("model", short_model(model))))
         if acct:
             fields.append((1, tagged("account", acct)))
-        lab_w = max(ct._cols(icon(x)) for x in ("ctx", "5h", "7d"))   # 文字档 ctx 比 5h 宽一格，对齐百分比
-        c = ctx_pct(ctx)
+        lab_w = max(R.cols(icon(x)) for x in ("ctx", "5h", "7d"))   # 文字档 ctx 比 5h 宽一格，对齐百分比
+        c = R.ctx_pct(ctx, claude.auto_compact_at() or claude.CTX_HARD)
         if c:
-            fields.append((9, f"{ct.GREY}{icon('ctx').ljust(lab_w)}{ct.RESET} {c[1]}{c[0]:3d}%{ct.RESET}"))
+            fields.append((9, f"{R.GREY}{icon('ctx').ljust(lab_w)}{R.RESET} {c[1]}{c[0]:3d}%{R.RESET}"))
         for label, key, prio in (("5h", "five_hour", 9), ("7d", "seven_day", 3)):
-            q = quota_pct(u, label, key)
+            q = R.quota_pct(u, label, key)
             if q:
-                fields.append((prio, f"{ct.GREY}{icon(label).ljust(lab_w)}{ct.RESET} {q[1]}{q[0]:3.0f}%{ct.RESET}"))
+                fields.append((prio, f"{R.GREY}{icon(label).ljust(lab_w)}{R.RESET} {q[1]}{q[0]:3.0f}%{R.RESET}"))
         # 宽度不够整行放下的字段，按优先级丢（账号 → 模型 → 7d），剩下的照原顺序排
         for prio in (1, 2, 3):
-            fields = [(p, ln) for p, ln in fields if p != prio or ct._cols(ct.ANSI.sub("", ln)) <= room]
+            fields = [(p, ln) for p, ln in fields if p != prio or R.cols(ln) <= room]
         lines += [ln for _, ln in fields]
-        return "\n".join(_clip(ln, room) for ln in lines)
-
-    def narrow_rows(self, width):
-        """窄版列表：每轮一行，轮号加你那句话的前几个字（`#41 那我们`），不放 Claude 回复的开头。"""
-        stops = self.tr.visible()
-        room = max(4, width - 3)                       # 左边 2 列 + 指针
-        busy = self.busy()
-        out = []
-        gone_n = sum(1 for st in stops if st["compacted"])
-        if gone_n:
-            out.append(f"{td.UNFOLD if self.expanded else td.FOLD}\t"
-                       + _clip(f"{ct.DIMC}#1–#{gone_n} {'−' if self.expanded else '+'}{ct.RESET}", room))
-        for n, st in enumerate(stops, 1):
-            if st["compacted"] and not self.expanded:
-                continue
-            ask = ct._oneline(st["prompt"]) if st["kind"] == "human" else _t("（{p}）").format(p=st["prompt"])
-            colour = (ct.WARN_C if busy and n == len(stops) else ct.DIMC if st["id"] in self.missing else "")
-            out.append(f"{st['id']}\t" + _clip(f"{ct.DIMC}#{n}{ct.RESET} {colour}{ask}", room) + ct.RESET)
-        return "\0".join(out)
+        return "\n".join(R.clip(ln, room) for ln in lines)
 
     def wide_header(self, width):
         if self.tr is None:
             head = _t("这个窗格里没找到 Claude 会话")
         else:
-            stops = self.tr.visible()
+            stops = self.stops()
             gone_n = sum(1 for st in stops if st["compacted"])
             head = (_t("{gone} 轮已压缩 · 当前 {n} 轮").format(gone=gone_n, n=len(stops) - gone_n) if gone_n
                     else _t("{n} 轮").format(n=len(stops)))
         if self.flash and time.monotonic() < self.flash[1]:
-            head += f" · {ct.WARN_C}{self.flash[0]}{ct.RESET}"
-        cfg = cfg_key(self.cfg_dir)
-        u = ct.read_usage(cfg)
+            head += f" · {R.WARN_C}{self.flash[0]}{R.RESET}"
+        u = claude.read_usage(self.cfg_dir)
         model, ctx = self.model_ctx()
-        return "\n".join([buttons_line(wide_buttons(), u), head, *ct.status_lines(width, model, ctx, u, "", cfg)])
+        lines = R.status_lines(width, model, ctx, u, claude.current_account(self.cfg_dir),
+                               claude.auto_compact_at(), claude.CTX_HARD)
+        return "\n".join([buttons_line(wide_buttons(), u), head, *lines])
 
     def rows(self, width):
         if not self.tr:
             return ""
+        missing = frozenset(self.missing)
         if self.mode == "narrow":
-            return self.narrow_rows(width)
-        return td.rows_of(self.tr, self.busy(), self.opened, width, self.expanded, (), frozenset(self.missing))
+            return R.narrow_rows_of(self.stops(), self.busy(), width, self.expanded, missing)
+        return R.rows_of(self.stops(), self.busy(), self.opened, width, self.expanded, (), missing)
 
     def push(self):
         width = self.width()
@@ -564,8 +463,8 @@ class Sidebar:
             return
         if parts[0] == "open" and len(parts) > 1:
             sid = parts[1].strip("'")
-            if sid in (td.FOLD, td.UNFOLD):    # 「已压缩」那一行：只在侧栏里展开 / 收起
-                self.expanded = sid == td.FOLD
+            if sid in (R.FOLD, R.UNFOLD):      # 「已压缩」那一行：只在轨迹里展开 / 收起
+                self.expanded = sid == R.FOLD
                 self.push()
                 return
             self.opened = sid
@@ -601,7 +500,7 @@ class Sidebar:
             self.kick_usage(force=True)
         elif act == "bottom":
             self.jump_token += 1
-            self.send("C-End")
+            HerdrTerm(self.target).send("C-End")
             fzf(self.sock, "last")
         elif act in ("wide", "narrow"):
             self.set_mode(act)
@@ -610,7 +509,6 @@ class Sidebar:
 
     def run_tool(self, button):
         """配置里的按钮：在 Claude 那一格的目录里开本插件的浮窗（manifest 的 tool 窗格），经 sh -c 跑它的 command。"""
-        import shlex
         cmd = button["command"]
         try:
             prog = shlex.split(cmd)[0]
@@ -627,26 +525,16 @@ class Sidebar:
         except (OSError, ValueError, HerdrError) as e:
             self.say(f"{prog}: {e}")                 # 比如设置页开着时 herdr 回 ui_busy
 
-    # -- 跳转：照搬 claude_trail.cmd_jump，读屏 / 发键换成 herdr --
-
-    # herdr 的 send-keys 不认 Home / End / PageUp / PageDown（报 invalid_key），直接发终端的转义序列
-    KEYS = {"C-Home": "\x1b[1;5H", "C-End": "\x1b[1;5F", "PageUp": "\x1b[5~", "PageDown": "\x1b[6~"}
-
-    def send(self, *keys):
-        """所有按键拼成一次 send_text。keys 里不在 KEYS 表里的原样发（滚轮的鼠标序列）。"""
-        call("pane.send_text", pane_id=self.target, text="".join(self.KEYS.get(k, k) for k in keys))
-
-    def screen(self):
-        return call("pane.read", pane_id=self.target, source="visible")["read"]["text"]
+    # -- 跳转 --
 
     def jump(self, stop_id, token):
         t0 = time.monotonic()
+        stops = self.stops()
+        n = next((i + 1 for i, s in enumerate(stops) if s["id"] == stop_id), None)
         try:
-            found = self._jump(stop_id, token)
+            found = self._jump(stops, n, token)
         except (OSError, ValueError, KeyError, HerdrError) as e:
             found = f"error {e!r}"
-        stops = self.tr.visible() if self.tr else []
-        n = next((i + 1 for i, s in enumerate(stops) if s["id"] == stop_id), None)
         try:
             with open(JUMP_LOG, "a") as f:
                 f.write(json.dumps({"at": time.strftime("%F %T"), "pane": self.target, "sid": self.sid,
@@ -655,128 +543,34 @@ class Sidebar:
         except OSError:
             pass
 
-    def _jump(self, stop_id, token):
-        stops = self.tr.visible() if self.tr else []
-        idx = next((i for i, x in enumerate(stops) if x["id"] == stop_id), None)
-        if idx is None:
+    def _jump(self, stops, n, token):
+        if n is None:
             return "unknown"
-        # Claude 还在干的那一轮没有最终回复，拿半截的文字去找会一直对不上：最新的东西本来就在最底下
+        idx, stop_id = n - 1, stops[n - 1]["id"]
+        term = HerdrTerm(self.target)
+        # agent 还在干的那一轮没有最终回复，拿半截的文字去找会一直对不上：最新的东西本来就在最底下
         if idx == len(stops) - 1 and self.busy():
-            self.send("C-End")
+            term.send("C-End")
             return "busy-bottom"
-        needle = ct._needle({"final": stops[idx]["reply"]})
-        if not needle:
+        if not jump.needle(stops[idx]["reply"]):
             self.say(_t("轨迹：这一轮 Claude 没写文字回复，没法定位"))
             return "no-text"
         if stop_id in self.missing:
             self.say(_t("轨迹：这一轮在主界面里已经看不到了（续接的会话只显示最近一段，或被 /compact 清掉）"))
             return "missing"
-        needles = ct.needles_of([{"final": s["reply"]} for s in stops])
-        info = pane_info(self.target) or {}
-        height = (info.get("scroll") or {}).get("viewport_rows") or 40
-        pages = 2 if height >= 30 else 1
-        from_top = idx < len(stops) / 2
+        result = jump.jump(term, [s["reply"] for s in stops], idx, lambda: self.jump_token != token)
+        if result == "found":
+            self.missing.discard(stop_id)
+        elif result == "timeout":
+            self.say(_t("轨迹：这一轮没找着，先停在这儿了"))
+        elif isinstance(result, tuple):       # ("gone", k)：比主界面最上面那一轮更早的都翻不到，一起记下来
+            top = result[1]
+            self.missing |= {x["id"] for x in stops[:top]} if top is not None else {stop_id}
+            self.say(_t("轨迹：主界面里找不到这一轮（续接的会话只显示最近一段，或被 /compact 清掉）"))
+            result = "not-found"
+        return result
 
-        def cancelled():
-            return self.jump_token != token
-
-        def needle_row(text):
-            for i, row in enumerate(text.splitlines()):
-                if needle in ct._norm(row) and not row.lstrip().startswith("❯"):
-                    return i
-            return None
-
-        def press(before, *keys):
-            """发键、等屏幕**不再变**再返回（见 cmd_jump 里的说明）；什么都没动（到头了）返回 None。"""
-            self.send(*keys)
-            time.sleep(ct.REDRAW_WAIT)
-            now, last = self.screen(), None
-            for _ in range(60):
-                if now != before and now == last:
-                    return now
-                last = now
-                time.sleep(0.01)
-                now = self.screen()
-            return None if now == before else now
-
-        def where(text):
-            rows = [ct._norm(r) for r in text.splitlines() if not r.lstrip().startswith("❯")]
-            seen = None
-            for i, n in enumerate(needles):
-                if n and any(n in r for r in rows):
-                    seen = i
-            return seen
-
-        def lift(now):
-            down = f"\x1b[<65;10;{height // 2}M"
-            for _ in range(10):
-                r = needle_row(now)
-                if r is None or r <= 4:
-                    return
-                if AT_BOTTOM not in now:        # 已经在最底：往下推不动，别白等 press 那 0.6 秒
-                    return
-                if r - 4 >= height // 2:
-                    now = press(now, "PageDown")
-                else:
-                    now = press(now, *[down] * min(2, r - 4))
-                if now is None:
-                    return
-
-        def search(nudge=True):
-            now = self.screen()
-            # 已经在最底时 Ctrl+End 什么都不会动，press 要干等 0.6 秒才认定「到头了」（tmux 版也是）
-            if from_top or AT_BOTTOM in now:
-                now = press(now, "C-Home" if from_top else "C-End") or self.screen()
-            last_turn, since = None, 0
-            prev_down, fine = from_top, False
-            for _ in range(ct.MAX_ROLLS):
-                if needle_row(now) is not None:
-                    if nudge:
-                        lift(now)
-                    return True
-                if cancelled():
-                    return True
-                if time.monotonic() > deadline:
-                    return None
-                cur = where(now)
-                steps, down = pages, prev_down
-                if cur is not None and not fine:
-                    down = cur < idx
-                    if down != prev_down:
-                        fine = True
-                    elif last_turn is not None and cur != last_turn and since:
-                        rate = since / abs(cur - last_turn)
-                        steps = max(pages, min(int(rate * abs(idx - cur) * 0.6), ct.MAX_ROLLS))
-                    last_turn, since = cur, 0
-                prev_down = down
-                now = press(now, *["PageDown" if down else "PageUp"] * steps)
-                since += steps
-                if now is None:
-                    return False
-            return False
-
-        deadline = time.monotonic() + ct.JUMP_BUDGET
-        for attempt in range(2):
-            found = search(nudge=attempt == 0)
-            if found is None:
-                self.say(_t("轨迹：这一轮没找着，先停在这儿了"))
-                return "timeout"
-            if cancelled():
-                return "cancelled"
-            if found and needle_row(self.screen()) is not None:
-                self.missing.discard(stop_id)
-                return "found"
-        # 翻到头也没有：比主界面最上面那一轮更早的都翻不到，一起记下来（侧栏灰显，再点立刻提示）
-        self.send("C-Home")
-        time.sleep(0.4)
-        top = ct.locate(self.screen(), needles)
-        gone = [x["id"] for x in stops[:top[0]]] if top and top[0] > idx else [stop_id]
-        self.missing |= set(gone)
-        self.send("C-End")
-        self.say(_t("轨迹：主界面里找不到这一轮（续接的会话只显示最近一段，或被 /compact 清掉）"))
-        return "not-found"
-
-    # -- 主循环 --
+    # -- herdr 事件 --
 
     def subscribe(self):
         """订阅这个 Claude 的状态变化、窗格关闭。`pane.updated` 不订：它不能按窗格过滤，
@@ -813,7 +607,7 @@ class Sidebar:
             f"--listen={self.sock}", "--header", header, "--header-border=bottom",
             # 打开时落在最后一轮；只这一次，之后刷新列表不把你拽回去
             "--bind", "load:last+unbind(load)",
-            # 点一项 / 点表头：写进 FIFO，这个进程马上收到（不用 tmux 版那样起一个 python，也不轮询文件）
+            # 点一项 / 点表头：写进 FIFO，这个进程马上收到（不用每次起一个 python，也不轮询文件）
             "--bind", f"left-click:execute-silent(printf 'open %s\\n' {{1}} >> {fifo})",
             "--bind", ("click-header:execute-silent(printf 'click %s %s\\n' \"$FZF_CLICK_HEADER_LINE\" "
                        f"\"$FZF_CLICK_HEADER_COLUMN\" >> {fifo})"),
@@ -824,15 +618,15 @@ class Sidebar:
     # -- 宽版 / 窄版 --
 
     def split_widths(self):
-        """(Claude 那一格的宽, 侧栏的宽)；两格就是 open_sidebar 切出来的那一对，宽度加起来是那条分割的宽。"""
+        """(Claude 那一格的宽, 轨迹的宽)；两格就是 open_sidebar 切出来的那一对，宽度加起来是那条分割的宽。"""
         rects = {p["pane_id"]: p["rect"] for p in call("pane.layout", pane_id=self.me)["layout"]["panes"]}
         return rects[self.target]["width"], rects[self.me]["width"]
 
     def set_width(self, cols):
-        """把侧栏调到 cols 列（挪 Claude 和侧栏之间那条线，见 open_sidebar）。herdr 把分割比例限制在
+        """把轨迹调到 cols 列（挪 Claude 和轨迹之间那条线，见 open_sidebar）。herdr 把分割比例限制在
         0.1–0.9（src/layout.rs:295），所以最窄是这条分割的 10%，要更窄它会自己夹住。"""
-        # resize 挪的是窗格「那个方向上」的那条边：Claude 的右边、侧栏的左边都是中间这条线。
-        # 反过来（Claude 往左、侧栏往右）挪的是外侧的线，会去挤旁边的 herdr-sidebar（实测 32 列挤成 18 列）
+        # resize 挪的是窗格「那个方向上」的那条边：Claude 的右边、轨迹的左边都是中间这条线。
+        # 反过来（Claude 往左、轨迹往右）挪的是外侧的线，会去挤旁边的 herdr-sidebar（实测 32 列挤成 18 列）
         tw, sw = self.split_widths()
         if sw > cols:
             call("pane.resize", pane_id=self.target, direction="right", amount=(sw - cols) / (tw + sw))
@@ -900,7 +694,7 @@ class Sidebar:
         fifo_r = os.open(self.fifo, os.O_RDONLY | os.O_NONBLOCK)
         fifo_w = os.open(self.fifo, os.O_WRONLY | os.O_NONBLOCK)
         signal.set_wakeup_fd(self.wake_w, warn_on_full_buffer=False)
-        signal.signal(signal.SIGWINCH, lambda *_: None)   # 窗格宽度变了：柱子按新宽度重画
+        signal.signal(signal.SIGWINCH, lambda *_: None)   # 窗格宽度变了：按新宽度重画
         sub, evbuf = self.subscribe()
         self.refresh()
         self.kick_usage()
@@ -992,10 +786,10 @@ def cmd_pane():
     Sidebar(target, me).run()
 
 
-# ---- 开 / 关 ---------------------------------------------------------------------
+# ---- 开 / 切 ---------------------------------------------------------------------
 
 def sidebars():
-    """{侧栏窗格: Claude 窗格}，只留还活着的。"""
+    """{轨迹窗格: Claude 窗格}，只留还活着的。"""
     try:
         alive = {p["pane_id"] for p in call("pane.list")["panes"]}
     except (OSError, ValueError, KeyError, HerdrError):
@@ -1008,7 +802,7 @@ def sidebars():
         except (OSError, ValueError, KeyError):
             continue
     out = {sb: tg for sb, tg in out.items() if sb in alive}
-    # 侧栏被强杀、没来得及收拾：窗格已经不在、放了 10 秒以上的文件都删掉
+    # 轨迹被强杀、没来得及收拾：窗格已经不在、放了 10 秒以上的文件都删掉
     keep = {sb.replace(":", "_") for sb in out}
     for f in RUN.iterdir():
         try:
@@ -1023,13 +817,12 @@ def open_sidebar(target):
     r = call("plugin.pane.open", plugin_id=PLUGIN_ID, entrypoint="trail", placement="split",
              target_pane_id=target, direction="right", focus=False, env={"CLAUDE_TRAIL_TARGET": target})
     pane = r["plugin_pane"]["pane"]["pane_id"]
-    # 侧栏进程起来要零点几秒，它写登记之前紧跟着来的第二个事件会以为还没开、再开一个：这里先写上
+    # 轨迹进程起来要零点几秒，它写登记之前紧跟着来的第二个事件会以为还没开、再开一个：这里先写上
     RUN.mkdir(parents=True, exist_ok=True)
     (RUN / f"{pane.replace(':', '_')}.json").write_text(json.dumps({"sidebar": pane, "target": target}))
     # plugin.pane.open 没有比例参数，开出来是对半分；把中间那条线往右推到 66 / 34（默认窄版就推到底，
-    # herdr 会夹在 0.9）。
-    # 要对 Claude 那一格做：对侧栏做 resize right 挪的是侧栏**右边**那条线，右边还有别的窗格
-    # （比如 herdr-sidebar 停在右边）时会去挤它（实测把它从 32 列挤到 18 列）
+    # herdr 会夹在 0.9）。要对 Claude 那一格做：对轨迹做 resize right 挪的是轨迹**右边**那条线，
+    # 右边还有别的窗格（比如 herdr-sidebar 停在右边）时会去挤它（实测把它从 32 列挤到 18 列）
     call("pane.resize", pane_id=target, direction="right",
          amount=0.5 - (0.1 if CFG["default_mode"] == "narrow" else WIDTH))
     return pane
@@ -1045,7 +838,7 @@ def cmd_toggle():
     with locked():
         bars = sidebars()
         for sb, tg in bars.items():
-            if focused in (sb, tg):                   # 焦点在侧栏上、或在开着侧栏的 Claude 上：收起 / 展开
+            if focused in (sb, tg):                   # 焦点在轨迹上、或在开着轨迹的 Claude 上：拉窄 / 拉宽
                 with open(RUN / f"{sb.replace(':', '_')}.fifo", "w") as f:
                     f.write("toggle\n")
                 return
@@ -1061,11 +854,12 @@ def cmd_auto():
 
     只在这个 tab 里**正好有一个** Claude 时开，停在它右边：没有 Claude 不开；好几个 Claude
     （agent teams 的队友）时再切一块谁都看不清，也不开。另外要够宽、还没开着。
-    侧栏没有「关闭」只有「收起」，所以不用记谁被手动关过：被 herdr 的 Close pane 关掉的，下次切过来照样开。"""
+    轨迹没有「关闭」只有窄版，所以不用记谁被手动关过：被 herdr 的 Close pane 关掉的，下次切过来照样开。"""
     if not CFG["auto_open"]:
         return
     raw = os.environ.get("HERDR_PLUGIN_EVENT_JSON") or "{}"
     try:
+        STATE.mkdir(parents=True, exist_ok=True)
         with open(EVENT_LOG, "a") as f:
             f.write(raw[:400] + "\n")
         if EVENT_LOG.stat().st_size > 200_000:
@@ -1088,7 +882,7 @@ def cmd_auto():
             return
         # 只看 agent：Claude 刚被认出来（pane.agent_detected）时会话 id 往往还没报上来，要求有 id 就会漏开
         # （实测第二次起测试 Claude 就没开）。轨迹自己会等会话 id 出现
-        claudes = [p for p in panes if p.get("agent") == "claude"]
+        claudes = [p for p in panes if reader_for(p.get("agent"))]
         if len(claudes) != 1:
             return
         c = claudes[0]["pane_id"]
@@ -1104,7 +898,7 @@ def cmd_auto():
 
 
 def locked():
-    """开 / 关的判断和动作要串行：焦点一变会连着来好几个事件，各起一个进程。"""
+    """开 / 切的判断和动作要串行：焦点一变会连着来好几个事件，各起一个进程。"""
     import fcntl
     from contextlib import contextmanager
 
