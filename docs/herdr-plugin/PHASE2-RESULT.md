@@ -156,28 +156,42 @@
 
 ## 发布前检查清单
 
-你已经定了的（2026-10-25 晚，经主会话转达）：
+你已经定了的（2026-10-25 晚）：
 
 | 事项 | 决定 | 落实 |
 |---|---|---|
-| 额度查询 | 默认只读 Claude Code 缓存在 `.claude.json` 里的读数，不碰钥匙串；`live_usage = true` 才实时查询 | ec3236d：缓存可能是几天前的，表头写「N 天前」，过了重置时间的窗口画「?」；README 改写 |
-| 默认图标 | 加 `icons = "auto"` 并设为默认：装了 Nerd Font 用 nerd，没装用 unicode | ec3236d：macOS 看 `~/Library/Fonts`、`/Library/Fonts`，Linux 问 `fc-list`；README 写明「装了不代表终端在用它」 |
-| Rust | v0.1 先用 Python 发，v0.2 再看 | 不动 |
-| 新仓库放哪 | `siyuanseever` 下 | README 的安装命令写成 `siyuanseever/<repo>` |
-| 名字 | 还没定：要和「轨迹」相关，不必带 agent | 先不改名，插件 id 仍是 `claude-trail` |
+| 名字 | **statetrail**（状态 + 轨迹，GitHub 0 同名） | 95d236f：插件 id、动作 `statetrail.toggle`、状态目录、环境变量 `STATETRAIL_*`、文案全改；改名前后 32 份基准逐字一致 |
+| 仓库结构 | `siyuanseever/statetrail`，一个仓库两个插件：`herdr/`（这个）、`claude-code/`（主会话在做的 Claude Code 版） | herdr 版安装命令写成 `herdr plugin install siyuanseever/statetrail/herdr`；顶层 README 草稿在 [statetrail-repo/README.md](statetrail-repo/README.md)，链接了 tmux 版 `siyuanseever/claude-tmux-sessions` |
+| 额度 | 一层一层兜底，哪个能用用哪个，谁新用谁：实时查询（`live_usage` 打开才有）→ statusLine 桥接（接上了才有）→ `.claude.json` 缓存 → 「?」 | c69e44d：`core/claude.read_usage`、可选的 `herdr/statusline.py`；README 写明怎么接、没有状态栏的人会多一行空白 |
+| 默认图标 | `icons = "auto"` | ec3236d |
+| Rust | v0.1 先用 Python 发 | 不动 |
+
+改名时本机做的迁移：
+
+- 卸掉旧链接 `claude-trail`，链上 `statetrail`
+- 旧状态目录里的 `jump.log`、`events.log`、`tab-names.json`、两份 `usage-*.json` 迁到 `~/.local/state/herdr/plugins/statetrail/`；
+  其余的（`run/`、早已废弃的 `off.json`、锁文件）删掉；空的旧配置目录删掉
+- 你 herdr 配置里 `prefix+t` 那条改成 `statetrail.toggle`，只动了这条的三行，备份是 `~/.config/herdr/config.toml.bak-20261025-statetrail`；
+  `reload-config` 成功，没有报错
+
+建仓库时要填的：
+
+- **简介**：`The trail of your coding agent's session, docked next to it: every turn one row, click to scroll there. Model, account, context and quota at a glance. herdr and Claude Code plugins.`
+- **topics**：`agent`、`coding-agent`、`claude-code`、`herdr`、`claude`、`ai-agent`、`tui`、`terminal`。
+  `herdr-plugin` 这个 topic 就是进 herdr 插件市场的那个标签，算发布那一步，等你点头再加。
 
 还要你确认的：
 
-1. **定名**。按「和轨迹相关、不必带 agent」，前面的候选里 `herdr-session-trail`、`herdr-waypoints` 符合（GitHub 上都是 0 同名）。
-   `herdr-turns` 偏「轮次」不太像「轨迹」，`herdr-trail` 已被别人占了。
-   定了以后我改 manifest、README、状态目录、动作名 `claude-trail.toggle`，重跑基准和录制。
-2. **建新仓库**：`siyuanseever/<名字>`，public。建议用 `git subtree split --prefix=herdr` 保留历史。
-3. **推送和真装一次**：推上去后在干净环境里 `herdr plugin install siyuanseever/<名字>`，记录命令和用时；README 里的 `<repo>` 换成真名。
-4. **打 `herdr-plugin` 标签**进插件市场。
-5. **合进 main**：本分支合进 `main` 后用 `git worktree remove` 收掉 worktree；用 subtree split 的话，`herdr/` 在这个仓库里留不留也要你定。
-6. **你自己这台的额度**：默认改成读缓存以后，你这里的缓存停在 10 月 9 日（l2 是 10 月 15 日），5h / 7d 现在显示「?」。
-   要像以前一样看实时数字，就在插件配置（`herdr plugin config-dir claude-trail` 那个目录的 `config.toml`）里写 `live_usage = true`。
-   我没替你改。
+1. **建仓库** `siyuanseever/statetrail`（public），填上面的简介和 topics。搬法建议用 `git subtree split --prefix=herdr` 保留历史，
+   再在新仓库里把它放进 `herdr/` 子目录，顶层放 README 草稿。
+2. **推送和真装一次**：推上去后在干净环境里 `herdr plugin install siyuanseever/statetrail/herdr`，记录命令和用时。
+3. **打 `herdr-plugin` 标签**进插件市场。
+4. **合进 main**：本分支合进 `main` 后用 `git worktree remove` 收掉 worktree；`herdr/` 搬走后在这个仓库里留不留，也要你定。
+5. **你自己这台的额度**：现在走分层，你没开实时查询、也没接桥接，只剩已经过期的缓存，所以 5h / 7d 是「?」。
+   三个选择：
+   - 插件配置里写 `live_usage = true`：用你的 Claude 登录实时查，界面不变
+   - 接 statusLine 桥接：不碰凭据，但输入框下面多一行
+   - 保持现状
 
 ## 评估：用 statusLine 桥接拿额度和上下文（不碰令牌）
 
@@ -229,8 +243,8 @@
 - 验证：拿官方文档里的示例 JSON 喂桥接脚本，看读数写对、原命令的输出一字不差；
   再在隔离的 herdr 里接上一个假 Claude 的 statusLine 跑一遍。
 
-**要你定**：你自己这台接不接？接就多一行空白，不接就 5h / 7d 保持「?」，或者打开 `live_usage`。
-不管接不接，桥接都可以做成插件的可选功能，给已经有 statusLine 的用户用。
+**结果**：你定了「一层一层兜底」，桥接做成了可选功能（c69e44d），读数顺序见上面的检查清单。
+你自己这台接不接，见检查清单第 5 条。
 
 ## 遗留问题和风险
 
