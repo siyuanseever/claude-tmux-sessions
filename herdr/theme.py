@@ -35,10 +35,10 @@ def herdr_config():
     base = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
     path = Path(base) / "herdr" / "config.toml"
     try:
-        import tomllib
+        import tomllib                 # Python 3.11+；更老的版本用默认主题，缺依赖的提示由 trail.missing_deps() 给
         with open(path, "rb") as f:
             return tomllib.load(f)
-    except (OSError, ValueError):
+    except (ImportError, OSError, ValueError):
         return {}
 
 

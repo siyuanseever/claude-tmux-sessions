@@ -63,11 +63,11 @@ DEFAULTS = {
 
 
 def config():
-    import tomllib
     try:
+        import tomllib                 # Python 3.11+；更老的版本由 missing_deps() 报出来，这里先用默认值
         with open(CONFIG_DIR / "config.toml", "rb") as f:
             user = tomllib.load(f)
-    except (OSError, tomllib.TOMLDecodeError):
+    except (ImportError, OSError, ValueError):
         user = {}
     cfg = {**DEFAULTS, **{k: v for k, v in user.items() if k in DEFAULTS}}
     cfg["buttons"] = [b for b in cfg["buttons"] if isinstance(b, dict) and b.get("label") and b.get("command")]
@@ -144,6 +144,50 @@ def claude_pid(pane):
         if p.get("argv0") == "claude" or VERSION.match(p.get("name") or ""):
             return p.get("pid")
     return None
+
+
+# ---- 依赖 ------------------------------------------------------------------------
+
+FZF_MIN = (0, 71)                  # --id-nth 是 fzf 0.71 加的（click-footer 0.65、Unix socket 的 --listen 0.66）
+DEPS_WARNED = STATE / "deps-warned"
+
+
+def missing_deps():
+    """缺了什么：[(一句话, 怎么装)]。python3 本身没有的话 herdr 起不来这个脚本，只能靠 README 说。"""
+    out = []
+    if sys.version_info < (3, 11):
+        out.append((_t("要 Python 3.11 以上，现在是 {v}").format(v=sys.version.split()[0]),
+                    "brew install python / apt install python3"))
+    path = shutil.which("fzf")
+    if not path:
+        out.append((_t("没找到 fzf"), "brew install fzf / https://github.com/junegunn/fzf#installation"))
+    else:
+        try:
+            v = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=3).stdout
+            ver = tuple(int(x) for x in re.match(r"(\d+)\.(\d+)", v).groups())
+        except (OSError, AttributeError, ValueError, subprocess.TimeoutExpired):
+            ver = (0, 0)
+        if ver < FZF_MIN:
+            out.append((_t("fzf 要 {need} 以上，现在是 {have}").format(
+                need=".".join(map(str, FZF_MIN)), have=".".join(map(str, ver))), "brew upgrade fzf"))
+    return out
+
+
+def warn_deps(quiet=False):
+    """缺依赖就用 herdr 的通知说一声。quiet（自动打开时）一天最多说一次，别每切一次 tab 就弹。返回缺没缺。"""
+    miss = missing_deps()
+    if not miss:
+        return False
+    if quiet:
+        try:
+            if time.time() - DEPS_WARNED.stat().st_mtime < 86400:
+                return True
+        except OSError:
+            pass
+        STATE.mkdir(parents=True, exist_ok=True)
+        DEPS_WARNED.touch()
+    notify(_t("claude-trail 缺依赖"), "; ".join(f"{m}（{how}）" for m, how in miss))
+    return True
 
 
 # ---- 图标、按钮 ------------------------------------------------------------------
@@ -825,6 +869,14 @@ def cmd_pane():
         sys.exit(0)
     for sig in (signal.SIGHUP, signal.SIGTERM):
         signal.signal(sig, bye)
+    miss = missing_deps()
+    if miss:                                   # 窗格里直接写出来，停住等你看，别一闪就没了
+        print(_t("claude-trail 缺依赖：") + "\n")
+        for m, how in miss:
+            print(f"  • {m}\n    {how}\n")
+        print(_t("装好以后关掉这个窗格，再打开一次。"))
+        signal.pause()
+        return
     Sidebar(target, me).run()
 
 
@@ -892,7 +944,7 @@ def cmd_toggle():
     focused = ctx.get("focused_pane_id") or os.environ.get("HERDR_PANE_ID")
     if len(sys.argv) > 2:
         focused = sys.argv[2]
-    if not focused:
+    if not focused or warn_deps():
         return
     with locked():
         bars = sidebars()
@@ -914,7 +966,7 @@ def cmd_auto():
     只在这个 tab 里**正好有一个** Claude 时开，停在它右边：没有 Claude 不开；好几个 Claude
     （agent teams 的队友）时再切一块谁都看不清，也不开。另外要够宽、还没开着。
     轨迹没有「关闭」只有窄版，所以不用记谁被手动关过：被 herdr 的 Close pane 关掉的，下次切过来照样开。"""
-    if not CFG["auto_open"]:
+    if not CFG["auto_open"] or warn_deps(quiet=True):
         return
     raw = os.environ.get("HERDR_PLUGIN_EVENT_JSON") or "{}"
     try:
