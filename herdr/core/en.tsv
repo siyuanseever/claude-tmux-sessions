@@ -1,383 +1,48 @@
-# 英文界面的词表：一行一条，中文原文<TAB>英文。lib/i18n.py 和 lib/i18n.sh 都读这一份。
-# 中文原文就是键，要和代码里写的一字不差（含空格、标点、{占位符} / %s）；没有的键在英文界面里原样显示中文。
-# 写短：英文比中文长，而列宽、按钮位置都按显示宽度算。状态符号 ⏸ ✔ ▶ ✓ 不翻。
-# 不能有 tab 和换行；空行和 # 开头的行跳过。shell 是逐行读到为止，shell 用的放前面。
+# claude-trail 英文界面的词表：一行一条，中文原文<TAB>英文。core/i18n.py 读这一份。
+# 中文原文就是键，要和代码里写的一字不差（含空格、标点、{占位符}）；没有的键在英文界面里原样显示中文。
+# 写短：英文比中文长，而列宽、按钮位置都按显示宽度算。不能有 tab 和换行；空行和 # 开头的行跳过。
+# 最早从 tmux 版 lib/en.tsv 拷来，只留插件用到的条目。
 
-# ---- 通用：时长 ------------------------------------------------------------
-{n}秒	{n}s
-{n}分钟	{n}m
-{n}小时	{n}h
-
-# ---- install.sh / sidebar/install.sh -------------------------------------------------
-缺少依赖:	Missing dependencies:
-==> (可选) brew install terminal-notifier — 装了之后点击 blocked 通知能直接跳到那个 pane	==> (optional) brew install terminal-notifier — then clicking a blocked notification jumps straight to that pane
-侧栏常驻进程已装好（%s）	Sidebar daemon installed (%s)
-
-# ---- picker 表头（skip-header.sh 每次按键都查，放前面） ----------------------------------
-✕ 关闭 · o 总览 · j/k 选窗口 · 数字直跳 · h session · a 全部 · p 预览 · t token · Enter 跳转 · / 搜索 · ctrl-x 归档 · q 退出	✕ close · o overview · j/k select · digits jump · h sessions · a all · p preview · t tokens · Enter jump · / search · ctrl-x archive · q quit
-✕ 关闭 · o 总览 · j/k 选窗口 · 数字直跳 · h session · a 全部 · f 编队 · p 预览 · t token · Enter 跳转 · / 搜索 · ctrl-x 归档 · q 退出	✕ close · o overview · j/k select · digits jump · h sessions · a all · f teams · p preview · t tokens · Enter jump · / search · ctrl-x archive · q quit
-✕ 关闭 · j/k 选 session · l 切回选窗口 · Enter 跳到该 session · / 搜索 · q 退出	✕ close · j/k select session · l back to panes · Enter go to session · / search · q quit
-输入过滤 · Enter 跳转 · Esc 返回 j/k 导航	type to filter · Enter jump · Esc back to j/k
-编队里没有可跳转的 pane · 已显示完整列表 · j/k 浏览 · q 退出	no team pane to jump to · showing the full list · j/k browse · q quit
-j/k 选队员 · h 收起 · Enter 跳到该队员 · / 搜索 · q 退出	j/k select teammate · h fold · Enter go to teammate · / search · q quit
-l 展开队员	l show teammates
-q/esc 退出	q/esc quit
-a 展开	a expand
-l 回到 pane 列表	l back to panes
-h 看 session	h sessions
-没有找到仍然存活的 Claude Code tmux pane	no live Claude Code tmux pane found
-这一屏没有可以选的行	nothing to select here
-
-# ---- picker 提示（claude-tmux-picker.sh / preview-row.sh / list-rows.sh） ------
-还没有记录到任何 Claude Code session。	No Claude Code session recorded yet.
-没有找到仍然存活的 Claude Code tmux pane。	No live Claude Code tmux pane found.
-Claude 实时画面	Claude live view
-session 已经不存在了 (%s)。	Session no longer exists (%s).
-pane 已经不存在了 (%s)。	Pane no longer exists (%s).
-(provider 没能给出预览)	(the provider gave no preview)
-(pane 已关闭或无法读取)	(pane closed or unreadable)
-(session 已关闭或无法读取)	(session closed or unreadable)
-⋯ 还有 %d 条 · a 展开	⋯ %d more · a expand
-
-# ---- 状态和时长（list-rows.sh / session-digest.py / overview.py） -----------------
-已运行 {d}	running {d}
-等确认 {d}	waiting {d}
-等输入 {d}	idle {d}
-完成 {d}前	done {d} ago
-{d}前	{d} ago
-
-# ---- 编队（agent_teams.py / list-rows.sh / session-digest.py） -----------------
-中枢	lead
-队员	mate
-队员 {n}	mates {n}
-{n} 人在做	{n} doing
-在做	doing
-待领	open
-挡住	blocked
-完成	done
-信箱	inbox
-编队 {team}	team {team}
-类型 {type}	type {type}
-等 #{n}	waits on #{n}
-信箱 {n} 条未读	{n} unread in inbox
-信箱 {n}	inbox {n}
-状态未知	unknown
-没有对应 pane	no pane
-共享任务表(未完成 {n})	shared tasks ({n} open)
-▎ (还没有回复内容)	▎ (no reply yet)
-没有找到任何编队。(找的是 {path}/*/config.json)	No team found. (looked in {path}/*/config.json)
-编队 {team}  在做 {doing} · 待领 {open} · 挡住 {blocked} · 完成 {done}	team {team}  doing {doing} · open {open} · blocked {blocked} · done {done}
-(没有 pane)	(no pane)
-
-# ---- picker 折叠行（list-rows.sh） ----------------------------------------------
-{n} 已读	{n} read
-{n} 搁置	{n} stale
-⋯ 收起 {n} 个({kinds}) · a 展开	⋯ {n} folded ({kinds}) · a expand
-
-# ---- picker 底部额度（usage-footer.sh） ------------------------------------------
-5小时窗口	5h window
-7天窗口	7d window
-7天 Opus	7d Opus
-7天 Sonnet	7d Sonnet
-额外用量	extra
-{when} 重置	resets {when}
-已用	used
-{n}分钟前	{n}m ago
-{n}小时前	{n}h ago
-今日	today
-近5h	last 5h
-近{n}天	last {n}d
-峰值	peak
-日均	avg/day
-※ 额度百分比为 Claude Code {note}缓存的 /usage 数据 · 其余为本地实时统计	※ quota % is the /usage data Claude Code cached {note} · the rest is counted live from local logs
-
-# ---- 总览页 / token 页的 shell 部分（overview-page.sh / token-page.sh / jump-handoff.sh） ----
-j/k 选 · Enter 跳过去 · p 预览 · r 刷新 · q 返回	j/k select · Enter go · p preview · r refresh · q back
-⚠ 这一行没有可以跳过去的 pane	⚠ nothing to jump to on this row
-现在什么状态	current state
-1 今日 · 7 近 7 天 · j/k 选会话 · Enter 跳过去 · p 预览 · r 重新统计 · q 返回	1 today · 7 last 7 days · j/k select · Enter go · p preview · r recount · q back
-⚠ 这个会话已经不在 tmux 里了,跳不过去	⚠ this session is no longer in tmux, nothing to jump to
-这个会话花在哪	where the tokens went
-这里没有可以跳过去的 pane	nothing to jump to here
-
-# ---- 总览页（overview.py） ------------------------------------------------------
-{n} 个等你确认	{n} waiting for you
-{n} 个有结果等你看	{n} done, waiting for a look
-没人等你 · {n} 个还在跑	nobody waiting · {n} still running
-没人等你 · 也没人在跑	nobody waiting · nothing running
-舰桥	Overview
-{s} 个 session · 在册 {n} · 在跑 {run} · 等你 {need} · 已读 {read}	{s} sessions · {n} tracked · {run} running · {need} for you · {read} read
-放久了 {n}	{n} stale
-+{n} 安静	+{n} quiet
-没有 pane	no pane
-{pane} 没在跟踪	{pane} not tracked
-读入 {n}	read {n}
+claude-trail 缺依赖	claude-trail: missing dependencies
+claude-trail 缺依赖：	claude-trail is missing dependencies:
+fzf 要 {need} 以上，现在是 {have}	fzf {need}+ required, found {have}
+{gone} 轮已压缩 · 当前 {n} 轮	{gone} compacted · {n} current
+{n} 分钟前	{n}m ago
+{n} 小时前	{n}h ago
 {n} 轮	{n} turns
-均/轮 {n}	avg/turn {n}
-这个 pane 已经不在了。	This pane is gone.
-位置	where
-目录	dir
-模型	model
-编队	team
-{n} 条未读	{n} unread
-开场	task
-更新	updated
-已读	read
-会话	session
-这个 session 已经不在了。	This session is gone.
-{n} 个 pane	{n} panes
-等确认	waiting
-有结果	done
-在跑	running
-放久了	stale
-状态	status
-窗口	windows
-最急	urgent
-花名册里已经没有这个成员了。	This member is no longer on the roster.
-角色	role
-类型	type
-花名册里写着 {pane},但那个 pane 没在跟踪 —— 可能已经关了,或者里面的 Claude 从没发过 hook。	The roster says {pane}, but that pane isn't tracked — it may have closed, or its Claude never sent a hook.
-花名册里有它,但没有对应的 tmux pane,所以跳不过去。队员只有真正跑起来过才会有 pane。	It's on the roster but has no tmux pane, so there is nothing to jump to. A teammate only gets a pane once it has actually run.
-
-# ---- token 页（token-report.py） ----------------------------------------------
-近 {n} 天	last {n} days
-{label} token 消耗	Token usage, {label}
-{n} 个会话	{n} sessions
-前 5 名占读入 {pct}%	top 5 = {pct}% of reads
-这个窗口里没有记录到任何一轮对话。	No turns recorded in this window.
-轮数	turns
-平均每轮上下文 {n}	avg context/turn {n}
-缓存读取	cache rd
-缓存写入	cache wr
-输出	output
-新输入	input
-项目	project
-读入	read
-均/轮	avg
-已经不在 tmux 里了	no longer in tmux
-未命名会话	untitled session
-轮数 {n}	turns {n}
-峰值 {n}	peak {n}
-分天	by day
-按每轮上下文	context per turn
-占窗口读入量 {pct}%	{pct}% of the window's reads
-(没有留下回复内容)	(no reply left)
-会话排行	Sessions
-· 按读入量	· by tokens read
-还有 {n} 个会话未显示	{n} more sessions not shown
-~98% 的 token 是重读已有上下文,所以「均/轮」比轮数更能解释谁贵。	~98% of tokens re-read existing context, so avg/turn explains cost better than turn count.
-
-# ---- 底栏点击、跳转、浮窗的 shell 部分（jump-top.sh / float-tool.sh） ---------------------
-没有追踪到任何 Claude Code pane	No Claude Code pane tracked
-没有需要处理的 pane	No pane needs you
-pane 已经不存在了 (%s)	Pane no longer exists (%s)
-%s 不是 git 仓库，下面 3 层也没有仓库。	%s is not a git repo, and there is none in the 3 levels below.
-按任意键或点浮窗外面关闭。	Press any key or click outside to close.
-仓库	repo
-%s 不是 git 仓库，点一个打开：	%s is not a git repo. Click one to open:
-
-# ---- 额度卡片（usage-refresh.py） ------------------------------------------------
-找不到 Claude Code 的登录凭据	Claude Code login credentials not found
-凭据格式认不出	Unrecognized credentials format
+{span} 已压缩（{n} 轮）· {act}	{span} compacted ({n} turns) · {act}
+主界面已无	gone from main screen
 令牌已过期，开一次 Claude Code 会自动续上	Token expired; opening Claude Code once renews it
-查询失败 HTTP {code}	Request failed: HTTP {code}
-查询失败（{err}）	Request failed ({err})
-已经	0m
-{d} 天 {h} 小时	{d}d {h}h
-{h} 小时 {m} 分	{h}h {m}m
-{m} 分钟	{m}m
-Claude 额度（{who}）	Claude quota ({who})
-Claude 额度	Claude quota
-{at} 的数据	data from {at}
-⟳ 刷新中…	⟳ refreshing…
-{at} 刷新	refreshed {at}
-{at} 的数据（{note}）	data from {at} ({note})
-之前	earlier
-没刷新成功：{err}	Refresh failed: {err}
-未知原因	unknown reason
-5 小时	5h
-7 天	7d
-没有数据	no data
-已用 {pct}%	{pct}% used
-{until}后重置（{at}）	resets in {until} ({at})
-刚刚刷新过	refreshed just now
-
-# ---- 资源监视（sys-monitor.py） --------------------------------------------------
-claude 会话	claude sessions
-Colima / Docker 虚拟机	Colima / Docker VM
-安卓模拟器	Android emulator
-TCSAS 开发者工具	TCSAS devtools
-WindowServer 窗口合成	WindowServer compositor
-编译 (go/clang/swift…)	build (go/clang/swift…)
-Docker 容器进程	Docker containers
-其它	other
-claude 后台会话机制（daemon / pty-host）	claude background (daemon / pty-host)
-claude（找不到所在窗格）	claude (pane not found)
-内存	Memory
-内存与交换	Memory & swap
-磁盘	Disk
-q 退出 · r 刷新	q quit · r refresh
-d 重新统计	d rescan
-点外面也会关	click outside to close
-资源监视	Resources
-用户 {us}% 系统 {sy}% · {n} 核 · 负载 {load}	user {us}% sys {sy}% · {n} cores · load {load}
-▤ 内存	▤ Mem
-其中 wired {wired} · 压缩器 {comp}	wired {wired} · compressed {comp}
-⇅ 交换	⇅ Swap
-= 拿 SSD 当内存，越多越卡	= SSD used as memory; more means slower
-▣ 磁盘	▣ Disk
-已用 {used}	used {used}
-共 {total} · 剩	{total} total · free
-（数据盘）	(data volume)
-按软件归类（括号里是进程个数）	by app (process count in parentheses)
-({n} 个)	({n})
-筛选中：只看「{g}」	Filtered: only {g}
-再点一次这一行、或按 a，恢复全部	click this row again or press a to show all
-（排序已固定，只刷新数字；按 r 重新排序）	(order frozen, numbers still update; r to re-sort)
-（↑↓ 或点击选一个；←→ / Tab 或点上面的软件行来筛选）	(↑↓ or click to pick one; ←→ / Tab or click an app row above to filter)
-最大的进程	Top processes
-软件	app
-名称	name
-已开	elapsed
-▤ 谁在占内存	▤ Memory
-⚙ 谁在占 CPU	⚙ CPU
-▣ 谁在占磁盘	▣ Disk
-共 {total}，已用 {used}，剩 {free}	{total} total, {used} used, {free} free
-家目录下每一项的大小（统计于 {at}，{state}）	size of each item in your home dir (scanned {at}, {state})
-正在后台重新统计…	rescanning in the background…
-按 d 重新统计	d to rescan
-其中 ~/Library 下面：	of which under ~/Library:
-还没统计过，正在后台扫家目录（几十秒到几分钟，扫完自动显示）…	Not scanned yet; scanning your home dir in the background (tens of seconds to minutes, shows up when done)…
-Docker（在 Colima 虚拟机的磁盘里，不在上面的家目录统计里单独列出，~/.colima 那一项就是它）：	Docker (inside the Colima VM disk; not listed separately above, it is the ~/.colima item):
-可回收 {n}	reclaimable {n}
-这是系统的 1 号进程	This is the system process 1
-系统关键进程 / 终端本身，关了会让整台电脑或所有终端窗口一起出问题	A critical system process or the terminal itself; closing it breaks the whole machine or every terminal window
-这是 tmux 服务端，关了所有 tmux 窗口和里面的会话都没了	This is the tmux server; closing it ends every tmux window and session
-不是你的进程（需要管理员权限，这里不做）	Not your process (needs admin rights; not done here)
-这是这个监视窗口自己（或它的上级）	This is this monitor itself (or its parent)
-用 adb 让模拟器「{avd}」正常关机（emulator-{port}）	Shut down emulator "{avd}" cleanly with adb (emulator-{port})
-它里面没存的东西会丢；别的会话如果正在测它，会被打断。	Anything unsaved in it is lost; other sessions testing on it get interrupted.
-正常退出 TCSAS 开发者工具	Quit TCSAS devtools normally
-它里面没保存的调试现场会丢；别的会话可能正在用它预览或上传，它们下次用时会自己再开。	Unsaved debugging state in it is lost; other sessions may be using it to preview or upload, and will reopen it when needed.
-colima stop（正常停掉 Docker 虚拟机）	colima stop (stop the Docker VM cleanly)
-里面 {n} 个容器会全部停掉（数据在卷里不丢，colima start 后回来）。本地数据库/Redis 都会连不上。	All {n} containers in it stop (data in volumes is kept and comes back after colima start). Local databases/Redis become unreachable.
-给 claude 发 SIGTERM（让它自己退出）	Send SIGTERM to claude (let it exit by itself)
-这个对话会结束；窗格里能用 claude --resume 接回。如果它正在工作，这一轮会丢。	This conversation ends; claude --resume in the pane brings it back. If it is working, this turn is lost.
-给这个 Chrome 进程发 SIGTERM	Send SIGTERM to this Chrome process
-只是 Chrome 的一个进程（标签页/插件/GPU），关了对应的标签页会显示「Aw, Snap」，刷新即可。关主进程会关掉整个 Chrome。	Only one Chrome process (tab/extension/GPU); its tab shows "Aw, Snap" and a reload fixes it. Closing the main process closes all of Chrome.
-给这个进程发 SIGTERM（礼貌地请它退出）	Send SIGTERM to this process (ask it to exit)
-没存的东西会丢。它不退再按 X 强制结束（SIGKILL）。	Anything unsaved is lost. If it does not exit, press X to force it (SIGKILL).
-退出命令没用，已强制结束 {name} 的全部进程	Quit did not work; force-killed every {name} process
-已发出关机	Shutdown sent
-已退出	Exited
-已停止	Stopped
-已发送信号 {sig}	Sent signal {sig}
-进程已经没了	The process is already gone
-没权限（不是你的进程）	No permission (not your process)
-这个进程已经退出了。	This process has exited.
-按 Esc 返回	Esc to go back
-进程详情	Process details
-所属软件	app
-内存       {rss}        CPU  {cpu}%（近一分钟平均）	memory     {rss}        CPU  {cpu}% (1-minute average)
-当前目录	cwd
-监听端口	listening
-子进程     {n} 个	children   {n}
-上级	parents
-命令行	command
-不能在这里关：{why}	Cannot close it here: {why}
-关闭方式	How to close
-注意	Note
-⚠ 这是你当前所在窗格里的进程（你正在用的会话）。关了你正在打字的窗口就没了。	⚠ This process belongs to the pane you are in (the session you are using). Closing it closes the window you are typing in.
-↑↓ 选进程 · Enter/点击 看详情 · ←→/Tab 或点软件行 筛选 · a 看全部	↑↓ pick a process · Enter/click details · ←→/Tab or click an app row to filter · a all
-r 重新排序 · Esc 取消选中	r re-sort · Esc deselect
-q 退出	q quit
-强制结束（SIGKILL，不给它收拾的机会）	force kill (SIGKILL, no chance to clean up)
-确定要 {what} 吗？	{what}?
-对象：	Target:
-按 y 确认	y to confirm
-，其他键取消	, any other key cancels
-关闭	close
-X 强制结束   Esc 返回   ↑↓ 换一个	X force kill   Esc back   ↑↓ next
-Esc 返回	Esc back
-已发送 SIGKILL	Sent SIGKILL
-没权限	No permission
-{res}，已退出。	{res}; it exited.
-{res}，但它还在（有的要几秒）。再看一次，或按 X 强制结束。	{res}, but it is still there (some take a few seconds). Look again, or press X to force it.
-这个进程已经变了（退出了或进程号被别的程序用了），没动。	This process changed (it exited or its pid was reused); nothing done.
-已取消，没动。	Cancelled; nothing done.
-
-# ---- 资源监视（sys-monitor.py）补 -------------------------------------------------
-（{names}…）	({names}…)
-
-# ---- 侧栏的 shell 部分（trail-sidebar.sh） ----------------------------------------
-加载中…	Loading…
-轨迹：这个窗格里没找到 Claude 会话	Trail: no Claude session found in this pane
-
-# ---- 侧栏（claude_trail.py / trail_daemon.py） ---------------------------------
+你说的：	You said:
+凭据格式认不出	Unrecognized credentials format
+刚刚更新	just now
 后台任务完成	background task finished
-收到其他会话的消息	message from another session
-（{p}）	({p})
+完成	done
+工作中	working
+已压缩	compacted
 已过	past
+找不到 Claude Code 的登录凭据	Claude Code login credentials not found
+找不到 {p}	{p} not found
+收到其他会话的消息	message from another session
+放不下宽版：要给 Claude 留 {n} 列	no room for the wide view: Claude needs {n} columns
+文件	Files
 无读数	no data
 查询中…	checking…
 查询失败	failed
-刚刚更新	just now
-{n} 分钟前	{n}m ago
-{n} 小时前	{n}h ago
-（Claude 还在干活…）	(Claude is still working…)
-（没有文字回复）	(no text reply)
-已压缩	compacted
-这个窗格里没找到 Claude 会话	No Claude session found in this pane
-准备切换	preparing to switch
-没找到 {path}	{path} not found
-只配了一个账号，在 {path} 里加上另一个	Only one account is configured; add another in {path}
-切账号：{msg}	Switch account: {msg}
-侧栏：没找到 {path}	Sidebar: {path} not found
+查询失败 HTTP {code}	Request failed: HTTP {code}
+查询失败（{err}）	Request failed ({err})
+没找到 fzf	fzf not found
+点开展开	click to expand
+点这里收起	click to fold
+等你	waiting
+装好以后关掉这个窗格，再打开一次。	Install it, close this pane and open the trail again.
+要 Python 3.11 以上，现在是 {v}	Python 3.11+ required, found {v}
+轨迹：主界面里找不到这一轮（续接的会话只显示最近一段，或被 /compact 清掉）	Trail: this turn is not on the main screen (a resumed session shows only the latest part, or /compact cleared it)
 轨迹：这一轮 Claude 没写文字回复，没法定位	Trail: Claude wrote no text reply in this turn, nothing to locate
 轨迹：这一轮在主界面里已经看不到了（续接的会话只显示最近一段，或被 /compact 清掉）	Trail: this turn is no longer on the main screen (a resumed session shows only the latest part, or /compact cleared it)
 轨迹：这一轮没找着，先停在这儿了	Trail: could not find this turn, stopped here
-轨迹：主界面里找不到这一轮（续接的会话只显示最近一段，或被 /compact 清掉）	Trail: this turn is not on the main screen (a resumed session shows only the latest part, or /compact cleared it)
-点这里收起	click to fold
-点开展开	click to expand
-{span} 已压缩（{n} 轮）· {act}	{span} compacted ({n} turns) · {act}
-主界面已无	gone from main screen
-你说的：	You said:
-{gone} 轮已压缩 · 当前 {n} 轮	{gone} compacted · {n} current
-主界面在 {where}	main screen at {where}
-
-# ---- 换账号（switch_account.py） ------------------------------------------------
-【切账号】要把这个会话换到另一个账号，得先收队：请让 {names} 把手上的结果交回来，然后把它们全部关掉。全部关掉后就停下，别的什么都不用做。	[Account switch] To move this session to another account, the team has to be wound down first: have {names} hand back their results, then shut them all down. Once they are all shut down, stop; nothing else is needed.
-让领队收队（{n} 个队友）	asking the lead to wind down the team ({n} teammates)
-等队友退出（还剩 {n} 个）	waiting for teammates to exit ({n} left)
-已让领队收队，{m} 分钟内队友没退完（还剩 {names}），没再动	asked the lead to wind down, but teammates did not all exit within {m} min ({names} left); stopped
-队友都退了，等领队停下来	teammates exited, waiting for the lead to stop
-队友都退了，但领队一直没停下来，没再动	teammates exited, but the lead never stopped; stopped
-已经是 {to}	already on {to}
-这是当前正在用的窗格	this is the pane you are using
-正在工作或等你确认，没动	busy or waiting for your confirmation; left alone
-它挂着后台任务/定时任务，切换会把它们停掉，没动	it has background/scheduled tasks that switching would stop; left alone
-窗格里没找到交互式 claude 进程	no interactive claude process in this pane
-队友：随领队收队，不单独切	teammate: goes with its lead, not switched on its own
-不是交互式会话（队友/后台），没动	not an interactive session (teammate/background); left alone
-认不出输入框，为防丢字没动	input box not recognized; left alone so no typing is lost
-输入框里有没发出去的字（{d}…），没动	unsent text in the input box ({d}…); left alone
-收过一次队了，窗口里还有队友，没再动	already wound down once, but teammates are still here; stopped
-（演练）会先让领队收队（{names}），收完再退出重启	(dry run) would ask the lead to wind down ({names}), then exit and restart
-（演练）会原地重启：{line}	(dry run) would restart in place: {line}
-（演练）会退出再执行：{line}	(dry run) would exit, then run: {line}
-{pane} 退出	{pane} exiting
-它有后台任务，退出会停掉它们，已取消退出，没动	it has background tasks that exiting would stop; exit cancelled, left alone
-它没有退出（可能刚好开始工作），没再动	it did not exit (it may have just started working); stopped
-已切到 {to}，接着原会话	switched to {to}, same session
-已执行 {what}，但 30 秒内没看到它在 {to} 下起来，请看一眼窗格	ran {what}, but it did not come up under {to} within 30 s; check the pane
-排队	queued
-切换中…	switching…
-tmux session 名；不给就看 --pane	tmux session name; without it, use --pane
-没有要切的窗格	No pane to switch
-
-# ---- hooks 的通知（tmux_status_update.py）和恢复提示（resurrect_hooks.py） -------------
-⏸ 等你确认 · {where}	⏸ Waiting for you · {where}
-有权限确认或问题在等你回复	A permission prompt or question is waiting for you
-● 等你确认 · {session} · {window}{what} — prefix a 跳转	● Waiting for you · {session} · {window}{what} — prefix a to jump
-已恢复 {n} 个 Claude Code 会话	Restored {n} Claude Code sessions
-关掉了 {n} 个恢复出来的空侧栏	Closed {n} empty restored sidebars
+轨迹：这个窗格里没找到 Claude 会话	Trail: no Claude session found in this pane
+这个窗格里没找到 Claude 会话	No Claude session found in this pane
+（Claude 还在干活…）	(Claude is still working…)
+（{p}）	({p})
+（没有文字回复）	(no text reply)

@@ -216,7 +216,8 @@ _TIER = ("nerd", "unicode", "text").index(CFG["icons"])
 
 
 def icon(name):
-    return ICONS[name][_TIER]
+    v = ICONS[name][_TIER]
+    return _t(v) if _TIER == 2 else v          # 文字档的字要跟着界面语言
 
 
 def button_icon(b):
@@ -236,7 +237,7 @@ SLOT, GAP = 3, 1
 def tool_buttons():
     """[(文字, 动作)]：图标和字只画一个，宽版窄版一样（用户定的）。有图标就只画图标；
     icons = "text" 或者这个按钮没配图标，就只写字。"""
-    return [(button_icon(b) or b["label"], f"tool:{i}") for i, b in enumerate(CFG["buttons"])]
+    return [(button_icon(b) or _t(b["label"]), f"tool:{i}") for i, b in enumerate(CFG["buttons"])]
 
 
 # 宽版表头第 1 行的按钮，格子的宽度、点偏一格也算的规矩和 tmux 版一样。
