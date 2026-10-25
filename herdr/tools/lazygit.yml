@@ -1,0 +1,3 @@
+# statetrail 开 lazygit 时叠加在你自己的 lazygit 配置后面（LG_CONFIG_FILE，逗号分隔、后面的覆盖前面的），
+# 不改你的配置文件。只为让退出方式和 yazi 一致：在最外层按 Esc 也退出，不只是 q。
+quitOnTopLevelReturn: true

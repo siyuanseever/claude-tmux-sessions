@@ -1,0 +1,43 @@
+# statetrail（herdr 版）：Claude Code 会话轨迹，停在 Claude 窗格右边。
+# 每轮一项，点一项 Claude 就滚到那一轮的最终回复；表头带模型、账号和 ctx / 5h / 7d 额度柱子。
+# 安装：herdr plugin install siyuanseever/statetrail/herdr
+id = "statetrail"
+name = "statetrail"
+version = "0.1.0"
+min_herdr_version = "0.9.5"
+description = "Claude Code session trail docked to the right of the Claude pane: one row per turn, click a turn and Claude scrolls to its final reply. Context and quota bars on top."
+platforms = ["macos", "linux"]
+
+[[actions]]
+id = "toggle"
+title = "Toggle statetrail"
+description = "Open the trail beside the focused Claude Code pane, or switch it between the wide and the narrow layout."
+contexts = ["pane"]
+command = ["python3", "trail.py", "toggle"]
+
+# 默认打开：tab 里正好有一个 Claude 时在它右边开（左边留给 herdr-sidebar 之类）。
+# 轨迹没有「关闭」：宽版 / 窄版两种都能长期用，左上角 » / « 切换；Claude 没了才真正关掉。
+# 不挂 pane.focused：切 tab 时它和 tab.focused 成对来，钩子白跑一遍（每次约 0.04 秒 CPU）；
+# 切 tab / 工作区都有 tab.focused，tab 里新起 Claude 有 pane.agent_detected，够用了。
+[[events]]
+on = "tab.focused"
+command = ["python3", "trail.py", "auto"]
+
+[[events]]
+on = "pane.agent_detected"
+command = ["python3", "trail.py", "auto"]
+
+[[panes]]
+id = "trail"
+title = "statetrail"
+placement = "split"
+command = ["python3", "trail.py", "pane"]
+
+
+# 底部的自定义按钮（配置里的 [[buttons]]，默认 Git = lazygit、文件 = yazi）：trail.py 把它开在 Claude 右边
+# （占 Claude 那一块的 60%），点外面就关。命令由 trail.py 经 STATETRAIL_CMD 传进来。
+[[panes]]
+id = "tool"
+title = "Tool"
+placement = "split"
+command = ["sh", "-c", "cd \"${STATETRAIL_CWD:-$PWD}\" && exec sh -c \"$STATETRAIL_CMD\""]
