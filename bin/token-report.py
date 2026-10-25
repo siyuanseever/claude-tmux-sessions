@@ -317,7 +317,6 @@ def name_sessions(ranked):
     by_sid, where, status = live_panes()
     teams = m.load_teams() or {}
     by_pane = teams.get("by_pane", {}) if teams else {}
-    manual = m.manual_names()
 
     probes = 0
     for s in ranked:
@@ -328,8 +327,7 @@ def name_sessions(ranked):
         s["where"] = w
         member = by_pane.get(pane)
         name = (
-            manual.get(sid, "")
-            or (member or {}).get("name", "")
+            (member or {}).get("name", "")
             or m.safe_title(ptitle)
             or (wname or "").strip()
         )
