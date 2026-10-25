@@ -110,6 +110,7 @@ teardown
 # ---- the diagrams: <out-dir>/*.svg → .png at 2x, for places that don't take SVG (Zhihu, Xiaohongshu) ----
 PROFILE="${TMPDIR:-/tmp}/claude-tmux-render-chrome"
 for svg in "$OUT_DIR"/*.svg; do
+  [ -e "$svg" ] || continue          # an out-dir without diagrams
   # (not `read`: an SVG without a trailing newline makes it fail, and set -e ends the script there)
   vb=$(grep -o 'viewBox="0 0 [0-9]* [0-9]*"' "$svg" | head -1 | tr -dc '0-9 ')
   w=$(echo "$vb" | awk '{print $3}'); h=$(echo "$vb" | awk '{print $4}')
