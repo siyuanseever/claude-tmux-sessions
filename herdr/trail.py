@@ -41,6 +41,7 @@ EVENT_LOG = STATE / "events.log"   # 自动打开收到的事件（文档没写 
 TAB_NAMES = STATE / "tab-names.json"   # {tab_id: 我们上次给它起的名字}：label 还是这个，才算「没被你手动改过」
 TAB_NAME_MAX = 24                  # tab 名最多多少列（中文算两格），太长 tab 栏放不下
 claude.USAGE_DIR = STATE           # 额度读数存在插件自己的状态目录
+claude.STATUSLINE_DIR = STATE / "statusline"   # 可选的 statusLine 桥接（statusline.py）写读数的地方
 MIN_WIDTH = 120                    # Claude 那一格至少这么宽才自动开
 CONFIG_DIR = Path(os.environ.get("HERDR_PLUGIN_CONFIG_DIR")
                   or Path.home() / ".config" / "herdr" / "plugins" / "config" / PLUGIN_ID)
@@ -494,7 +495,7 @@ class Sidebar:
         lines = [f" {R.BOLD}{icon('wide')}{R.RESET}{flash}"]    # « 在第 4 列，和宽版的 » 同一个位置（fzf 表头左边留 2 列）
         model, ctx = self.model_ctx()
         acct = claude.short_account(self.cfg_dir)
-        u = claude.read_usage(self.cfg_dir)
+        u = claude.read_usage(self.cfg_dir, self.sid)
         fields = []                                    # (优先级：数字小的先丢, 行)
 
         def tagged(name, text):                        # 文字档没有标记，前面就别留空格
@@ -527,7 +528,7 @@ class Sidebar:
                     else _t("{n} 轮").format(n=len(stops)))
         if self.flash and time.monotonic() < self.flash[1]:
             head += f" · {R.WARN_C}{self.flash[0]}{R.RESET}"
-        u = claude.read_usage(self.cfg_dir)
+        u = claude.read_usage(self.cfg_dir, self.sid)
         model, ctx = self.model_ctx()
         lines = R.status_lines(width, model, ctx, u, claude.current_account(self.cfg_dir),
                                claude.auto_compact_at(), claude.CTX_HARD)

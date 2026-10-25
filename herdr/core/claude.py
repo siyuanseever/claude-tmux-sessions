@@ -223,14 +223,64 @@ def cached_usage(cfg_dir):
     return out
 
 
-def read_usage(cfg_dir):
-    """表头用的额度：默认 Claude Code 的缓存；打开 LIVE 后读自己查到的（refresh_usage 写的那份）。"""
-    if not LIVE:
-        return cached_usage(cfg_dir)
+STATUSLINE_DIR = None      # statusline.py 写读数的目录（适配层设成插件状态目录下的 statusline/）
+
+
+def statusline_usage(sid):
+    """可选的 statusLine 桥接（../statusline.py）记下的这个会话的额度：Claude Code 每条回复后交给状态栏的那份，
+    用户在 settings.json 里接上了才有。resets_at 是 Unix 秒，换成和别的来源一样的 ISO 字符串。"""
+    if not STATUSLINE_DIR or not sid:
+        return None
     try:
-        return json.loads(usage_file(cfg_dir).read_text())
+        d = json.loads((Path(STATUSLINE_DIR) / f"{sid}.json").read_text())
     except (OSError, ValueError):
         return None
+    out = {"fetched_at_ms": d.get("fetched_at_ms") or 0, "source": "statusline"}
+    for w in WINDOWS:
+        win = (d.get("rate_limits") or {}).get(w) or {}
+        try:
+            reset = datetime.fromtimestamp(float(win["resets_at"])).astimezone().isoformat()
+        except (KeyError, TypeError, ValueError):
+            reset = None
+        out[w] = {"utilization": win.get("used_percentage"), "resets_at": reset}
+    return out
+
+
+def live_usage(cfg_dir):
+    """自己查到的（refresh_usage 写的那份），只在 LIVE 打开时用。"""
+    if not LIVE:
+        return None
+    try:
+        u = json.loads(usage_file(cfg_dir).read_text())
+    except (OSError, ValueError):
+        return None
+    u["source"] = "live"
+    return u
+
+
+def _drop_expired(u):
+    """重置时间已经过了的窗口，旧百分比不作数：当成没有读数（画成「?」）。"""
+    now = time.time()
+    for w in WINDOWS:
+        win = u.get(w) or {}
+        try:
+            fresh = datetime.fromisoformat(win.get("resets_at") or "").timestamp() > now
+        except (TypeError, ValueError):
+            fresh = False
+        if not fresh:
+            u[w] = {"utilization": None, "resets_at": None}
+    return u
+
+
+def read_usage(cfg_dir, sid=None):
+    """表头用的额度，一层一层兜底，哪个能用用哪个（用户定的）：
+    实时查询（live_usage 打开才有）、statusLine 桥接（接上了才有，按会话）、Claude Code 缓存在 .claude.json 里的，
+    三份里谁最新用谁；都没有就是 None，表头画「?」。usagebar（herdr-agent-usage）也是这么挑的：
+    它的 internal/limits/claudecache.go 里比 .claude.json 和 statusLine 缓存的 fetchedAtMs，取新的。"""
+    got = [u for u in (live_usage(cfg_dir), statusline_usage(sid), cached_usage(cfg_dir)) if u]
+    if not got:
+        return None
+    return _drop_expired(max(got, key=lambda u: u.get("fetched_at_ms") or 0))
 
 
 def _save(path, obj):
@@ -335,5 +385,5 @@ def refresh_usage(cfg_dir, force=False):
 def usage_stale(cfg_dir):
     if not LIVE:
         return False
-    u = read_usage(cfg_dir) or {}
+    u = live_usage(cfg_dir) or {}            # 只看自己查的那份：别的来源再新也不算「查过了」
     return time.time() - max(u.get("fetched_at_ms") or 0, u.get("attempted_at_ms") or 0) / 1000 > INTERVAL

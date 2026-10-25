@@ -65,7 +65,7 @@ default_mode = "wide"     # width when it opens: "wide" or "narrow"
 width = 0.34              # wide view, as a share of the Claude pane (Claude always keeps 110 columns)
 icons = "auto"            # "auto": Nerd Font icons if one is installed, else plain symbols;
                           # or "nerd" / "unicode" / "text". Installed is not in use: if you see boxes, set "unicode"
-live_usage = false        # true: ask for live 5h / 7d quota (see below); false: Claude Code's own cache
+live_usage = false        # true: also ask for live 5h / 7d quota with your Claude login (see below)
 lang = ""                 # "en" / "zh"; empty follows your locale
 tab_names = true          # name an unnamed tab after the Claude session
 
@@ -91,17 +91,37 @@ icon = "files"
 
 - **Reads** Claude Code's transcripts (`<config dir>/projects/*/<session>.jsonl`) and `.claude.json` (for the
   account name). It never writes them.
-- **Quota, by default:** the numbers Claude Code itself caches in `.claude.json` (`cachedUsageUtilization`, one per
-  config dir). No credentials are touched and nothing is sent anywhere. Claude Code refreshes that cache only when it
-  asks for usage (for example when you run `/usage`), so it can be days old: the header says how old, and a window
-  whose reset time has passed shows `?` instead of a stale number.
-- **Quota, with `live_usage = true`:** it asks the same endpoint Claude Code's `/usage` uses
-  (`api.anthropic.com/api/oauth/usage`), at most every 30 minutes, with the OAuth token Claude Code keeps in the
-  macOS Keychain (or `<config dir>/.credentials.json`). The token stays in memory for that one request; it is never
-  written, logged or refreshed. The endpoint is not a documented public API, so if it changes the bars just go quiet.
+- **Quota: several sources, the newest wins.** Each one is used only if it is there:
+  1. **Live** (only with `live_usage = true`): asks the endpoint Claude Code's `/usage` uses
+     (`api.anthropic.com/api/oauth/usage`), at most every 30 minutes, with the OAuth token Claude Code keeps in the
+     macOS Keychain (or `<config dir>/.credentials.json`). The token stays in memory for that one request; it is never
+     written, logged or refreshed. Not a documented public API: if it changes, this source just goes quiet.
+  2. **Status line bridge** (only if you wire it up, see below): Claude Code hands its status line the 5-hour and
+     7-day percentages after every reply (Pro / Max plans). No credentials involved.
+  3. **Claude Code's own cache** in `.claude.json` (`cachedUsageUtilization`, one per config dir). Always there, but
+     Claude Code only refreshes it when it asks for usage (for example when you run `/usage`), so it can be days old.
+
+  The header says how old the numbers are, and a window whose reset time has passed shows `?` rather than a stale number.
 - **Sends keys** to the Claude pane only to scroll it (PageUp / PageDown / Ctrl+Home / Ctrl+End / mouse wheel).
   It never types into the prompt.
 - Its own state lives in the plugin's state directory (`~/.local/state/herdr/plugins/statetrail/`).
+
+## Fresh quota without credentials: the status line bridge (optional)
+
+Claude Code passes the current 5-hour / 7-day usage to your status line command after every reply. `statusline.py`
+records it for statetrail and then runs your own status line command with the same input, so your status line
+looks exactly as before. statetrail never edits `settings.json`; you add this yourself, in each config dir you use
+(`~/.claude/settings.json`, and for example `~/.claude-work/settings.json`):
+
+```json
+{"statusLine": {"type": "command",
+                "command": "python3 <plugin dir>/statusline.py -- <your current status line command>"}}
+```
+
+`herdr plugin list` shows the plugin dir. If you have no status line yet, leave out everything from `--` on — but
+note that once a status line is configured, Claude Code keeps a line for it under the prompt even when it prints
+nothing. If you would rather not have that line, skip the bridge and use `live_usage`, or rely on the cache.
+
 
 ## Known limits
 
