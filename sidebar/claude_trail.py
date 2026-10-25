@@ -14,6 +14,9 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+from i18n import t as _t  # noqa: E402  界面文字：zh 原样，en 查 lib/en.tsv
+
 PROJECTS = Path.home() / ".claude" / "projects"
 # Written by hooks/tmux_status_update.py: {"%pane": {"session_id": ..., ...}}
 STATUS_FILE = Path.home() / ".claude" / "tmux-claude-status.json"
@@ -56,9 +59,9 @@ def _trigger(entry):
     kind = (entry.get("origin") or {}).get("kind")
     text = _text_of(content).strip()
     if kind == "task-notification":
-        return ("notify", "后台任务完成")
+        return ("notify", _t("后台任务完成"))
     if kind == "peer":
-        return ("peer", "收到其他会话的消息")
+        return ("peer", _t("收到其他会话的消息"))
     if entry.get("isMeta") or not text:
         return None
     if kind == "human":
@@ -183,7 +186,8 @@ def read_usage(cfg=""):
 def _left_str(secs):
     """还有多久重置，窄到塞得进一行：1d14h / 2h01m / 37m。"""
     if secs <= 0:
-        return "  已过"
+        s = _t("已过")
+        return " " * max(0, 6 - _cols(s)) + s     # 固定 6 格（中文两个字 4 格，前面补 2 格）
     d, r = divmod(int(secs), 86400)
     h, r = divmod(r, 3600)
     m = r // 60
@@ -372,18 +376,18 @@ def usage_state(u):
     看起来就像没反应（2026-10-10 用户：「刷新额度点击没有反馈信息」「我不知道有没有刷新好」）。
     所以这里把三件事说出来：在查、查完了多久、查失败了。要塞进按钮后面的固定宽度，所以写短。"""
     if not u:
-        return f"{DIMC}无读数{RESET}"
+        return f"{DIMC}{_t('无读数')}{RESET}"
     att, got, err = u.get("attempted_at_ms") or 0, u.get("fetched_at_ms") or 0, u.get("error_at_ms") or 0
     if att > got and att > err:
-        return f"{WARN_C}查询中…{RESET}"
+        return f"{WARN_C}{_t('查询中…')}{RESET}"
     if err > got:
-        return f"{ALERT_C}查询失败{RESET}"
+        return f"{ALERT_C}{_t('查询失败')}{RESET}"
     age = int(time.time() - got / 1000)
     if age < 90:
-        return f"{USED_C}刚刚更新{RESET}"
+        return f"{USED_C}{_t('刚刚更新')}{RESET}"
     if age < 3600:
-        return f"{DIMC}{age // 60} 分钟前{RESET}"
-    return f"{DIMC}{min(age // 3600, 99)} 小时前{RESET}"
+        return f"{DIMC}{_t('{n} 分钟前').format(n=age // 60)}{RESET}"
+    return f"{DIMC}{_t('{n} 小时前').format(n=min(age // 3600, 99))}{RESET}"
 
 
 _SA = None
@@ -585,12 +589,12 @@ def _rows(pane):
     busy = _busy(pane, s)
     out = []
     for st in s["stops"]:
-        ask = _oneline(st["prompt"]) if st["kind"] == "human" else f"（{st['prompt']}）"
+        ask = _oneline(st["prompt"]) if st["kind"] == "human" else _t("（{p}）").format(p=st['prompt'])
         if st["id"] == busy:
-            reply = "（Claude 还在干活…）"
+            reply = _t("（Claude 还在干活…）")
         else:
-            reply = _first_line(st["final"]) if st["final"] else "（没有文字回复）"
-        gone = " · 已压缩" if st["compacted"] else ""
+            reply = _first_line(st["final"]) if st["final"] else _t("（没有文字回复）")
+        gone = " · " + _t("已压缩") if st["compacted"] else ""
         meta = f"{DIM}#{st['n']} {_when(st['ts'])}{gone}{RESET}"
         # Two-line item: what you said, then how Claude's reply starts.
         out.append(f"{st['id']}\t{meta} {ask}\n  {DIM}{reply}{RESET}")
@@ -604,10 +608,10 @@ def cmd_rows(pane):
 def cmd_header(pane):
     p, s = _stops(pane)
     if not s:
-        print("这个窗格里没找到 Claude 会话")
+        print(_t("这个窗格里没找到 Claude 会话"))
         return
     cfg = _tmux("show", "-pqv", "-t", pane, "@claude_config").strip()
-    print(f"{len(s['stops'])} 轮")
+    print(_t("{n} 轮").format(n=len(s['stops'])))
     print(buttons_line(read_usage(cfg)))
     for ln in status_lines(int(os.environ.get("COLUMNS") or 66),
                            _tmux("show", "-pqv", "-t", pane, "@claude_model").strip(),
@@ -675,27 +679,27 @@ def cmd_switch(pane):
         tmp.write_text(json.dumps({"state": state, "msg": msg, "at": time.time()}, ensure_ascii=False))
         tmp.replace(f)
 
-    put("running", "准备切换")
+    put("running", _t("准备切换"))
     try:
         if not SWITCHER.exists():
-            raise RuntimeError(f"没找到 {SWITCHER}")
+            raise RuntimeError(_t("没找到 {path}").format(path=SWITCHER))
         sa = _switcher()
         target = other_cfg(_tmux("show", "-pqv", "-t", pane, "@claude_config").strip())
         if target is None:
-            raise RuntimeError(f"只配了一个账号，在 {sa.ACCOUNTS_FILE} 里加上另一个")
+            raise RuntimeError(_t("只配了一个账号，在 {path} 里加上另一个").format(path=sa.ACCOUNTS_FILE))
         to = next(k for k, (_, d) in sa.ACCTS.items() if Path(d) == (Path(target) if target else DEFAULT_CFG))
         r = sa.switch_one(pane, to, log=lambda m: put("running", m))
     except Exception as e:                      # 出什么错都要把「…」收掉，别一直挂着
         r = {"state": "fail", "msg": f"{type(e).__name__}: {e}"}
     put(r.get("state", "fail"), r.get("msg", ""))
-    _tmux("display-message", "-t", pane, f"切账号：{r.get('msg', '')}")
+    _tmux("display-message", "-t", pane, _t("切账号：{msg}").format(msg=r.get('msg', '')))
 
 
 def _open_tool(pane, action):
     """git / 文件：交给 float-tool.sh，传的是 Claude 窗格（不是侧栏自己）。
     放后台跑：fzf 的 transform 要等这个进程退出，弹窗慢一点侧栏就会卡住。"""
     if not FLOAT_TOOL.exists():
-        _tmux("display-message", "-t", pane, f"侧栏：没找到 {FLOAT_TOOL}")
+        _tmux("display-message", "-t", pane, _t("侧栏：没找到 {path}").format(path=FLOAT_TOOL))
         return
     subprocess.Popen([str(FLOAT_TOOL), pane, action], stdin=subprocess.DEVNULL,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -805,10 +809,10 @@ def cmd_jump(pane, stop_id):
     needle = _needle(stops[idx]) if idx is not None else ""
     if not needle:
         if idx is not None:
-            _tmux("display-message", "-t", pane, "轨迹：这一轮 Claude 没写文字回复，没法定位")
+            _tmux("display-message", "-t", pane, _t("轨迹：这一轮 Claude 没写文字回复，没法定位"))
         return
     if stop_id in missing_ids(pane):
-        _tmux("display-message", "-t", pane, "轨迹：这一轮在主界面里已经看不到了（续接的会话只显示最近一段，或被 /compact 清掉）")
+        _tmux("display-message", "-t", pane, _t("轨迹：这一轮在主界面里已经看不到了（续接的会话只显示最近一段，或被 /compact 清掉）"))
         return
     # A newer click wins: each jump checks this token and stops once it changes.
     token = str(os.getpid())
@@ -942,7 +946,7 @@ def cmd_jump(pane, stop_id):
     for attempt in range(2):
         found = search(nudge=attempt == 0)
         if found is None:
-            _tmux("display-message", "-t", pane, "轨迹：这一轮没找着，先停在这儿了")
+            _tmux("display-message", "-t", pane, _t("轨迹：这一轮没找着，先停在这儿了"))
             return
         if found and (JUMP_FILE.read_text() != token or needle_row(screen()) is not None):
             if stop_id in missing_ids(pane):
@@ -956,7 +960,7 @@ def cmd_jump(pane, stop_id):
     gone = [x["id"] for x in stops[:top[0]]] if top and top[0] > idx else [stop_id]
     _save_missing(pane, missing_ids(pane) | set(gone))
     _tmux("send-keys", "-t", pane, "C-End")
-    _tmux("display-message", "-t", pane, "轨迹：主界面里找不到这一轮（续接的会话只显示最近一段，或被 /compact 清掉）")
+    _tmux("display-message", "-t", pane, _t("轨迹：主界面里找不到这一轮（续接的会话只显示最近一段，或被 /compact 清掉）"))
 
 
 def cmd_bottom(pane):

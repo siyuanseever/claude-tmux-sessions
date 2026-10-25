@@ -308,3 +308,39 @@ Esc 返回	Esc back
 
 # ---- 资源监视（sys-monitor.py）补 -------------------------------------------------
 （{names}…）	({names}…)
+
+# ---- 侧栏的 shell 部分（trail-sidebar.sh） ----------------------------------------
+加载中…	Loading…
+轨迹：这个窗格里没找到 Claude 会话	Trail: no Claude session found in this pane
+
+# ---- 侧栏（claude_trail.py / trail_daemon.py） ---------------------------------
+后台任务完成	background task finished
+收到其他会话的消息	message from another session
+（{p}）	({p})
+已过	past
+无读数	no data
+查询中…	checking…
+查询失败	failed
+刚刚更新	just now
+{n} 分钟前	{n}m ago
+{n} 小时前	{n}h ago
+（Claude 还在干活…）	(Claude is still working…)
+（没有文字回复）	(no text reply)
+已压缩	compacted
+这个窗格里没找到 Claude 会话	No Claude session found in this pane
+准备切换	preparing to switch
+没找到 {path}	{path} not found
+只配了一个账号，在 {path} 里加上另一个	Only one account is configured; add another in {path}
+切账号：{msg}	Switch account: {msg}
+侧栏：没找到 {path}	Sidebar: {path} not found
+轨迹：这一轮 Claude 没写文字回复，没法定位	Trail: Claude wrote no text reply in this turn, nothing to locate
+轨迹：这一轮在主界面里已经看不到了（续接的会话只显示最近一段，或被 /compact 清掉）	Trail: this turn is no longer on the main screen (a resumed session shows only the latest part, or /compact cleared it)
+轨迹：这一轮没找着，先停在这儿了	Trail: could not find this turn, stopped here
+轨迹：主界面里找不到这一轮（续接的会话只显示最近一段，或被 /compact 清掉）	Trail: this turn is not on the main screen (a resumed session shows only the latest part, or /compact cleared it)
+点这里收起	click to fold
+点开展开	click to expand
+{span} 已压缩（{n} 轮）· {act}	{span} compacted ({n} turns) · {act}
+主界面已无	gone from main screen
+你说的：	You said:
+{gone} 轮已压缩 · 当前 {n} 轮	{gone} compacted · {n} current
+主界面在 {where}	main screen at {where}
