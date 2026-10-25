@@ -139,8 +139,8 @@ def main():
         tx = trail_x()
 
         shot(2.6)                                                   # 1. 打开
-        x, y = find("#3 ", right_of=tx)
-        click(x + 6, y)
+        x, y = find("Can it skip", right_of=tx)                     # 第 3 轮那句话的开头（不靠轮号的写法）
+        click(x, y)
         time.sleep(2)
         shot(2.8)                                                   # 2. 跳到第 3 轮
         click(*find("»", right_of=tx))
