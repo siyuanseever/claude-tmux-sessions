@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 960 640" font-family="PingFang SC, -apple-system, sans-serif" role="img" aria-label="整套工作台四层：语音输入把话变成文字，tmux 控制台管会话，Claude Code 会话干活，本机 Web 面板看用量和配置；Claude 把听错的词写回词表，形成反馈回路。">
+<rect x="0" y="0" width="960" height="640" rx="14" fill="#0f1419"/>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#8b949e"/></marker>
+  <marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#3fb950"/></marker>
+  <linearGradient id="me" x1="0" x2="1"><stop offset="0" stop-color="#58a6ff"/><stop offset="1" stop-color="#bc8cff"/></linearGradient>
+</defs>
+
+<text x="24" y="36" font-size="18" font-weight="800" fill="#e6edf3">我的 Claude Code 工作台：说话派活，看状态，回头对账</text>
+
+<!-- 我 -->
+<circle cx="84" cy="300" r="48" fill="url(#me)"/>
+<text x="84" y="296" font-size="21" font-weight="800" fill="#fff" text-anchor="middle">我</text>
+<text x="84" y="318" font-size="11.5" fill="#fff" text-anchor="middle">只做判断</text>
+<rect x="34" y="364" width="100" height="22" rx="11" fill="none" stroke="#30363d"/><text x="84" y="379" font-size="11" fill="#8b949e" text-anchor="middle">嘴：语音</text>
+<rect x="34" y="392" width="100" height="22" rx="11" fill="none" stroke="#30363d"/><text x="84" y="407" font-size="11" fill="#8b949e" text-anchor="middle">手：触控板点击</text>
+<path d="M126 276 C 150 200, 160 130, 188 122" fill="none" stroke="#8b949e" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="112" y="214" font-size="11" fill="#8b949e">说话</text>
+<line x1="132" y1="300" x2="188" y2="262" stroke="#8b949e" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="138" y="262" font-size="11" fill="#8b949e">点</text>
+
+<!-- ① 语音输入 -->
+<rect x="190" y="64" width="680" height="112" rx="10" fill="#161b22" stroke="#d29922" stroke-opacity=".7"/>
+<text x="206" y="88" font-size="14" font-weight="800" fill="#d29922">① 语音输入 · voice-input<tspan font-size="11.5" font-weight="400" fill="#8b949e">　开源 · Hammerspoon，按右 ⌘ 说话</tspan></text>
+<g font-size="11.5" fill="#e6edf3" text-anchor="middle">
+  <rect x="206" y="104" width="96" height="54" rx="8" fill="#d29922" fill-opacity=".14"/><text x="254" y="126">录音</text><text x="254" y="144" font-size="10" fill="#8b949e">ffmpeg</text>
+  <rect x="320" y="104" width="128" height="54" rx="8" fill="#d29922" fill-opacity=".14"/><text x="384" y="126">听写</text><text x="384" y="144" font-size="10" fill="#8b949e">qwen3-asr，连不上换备用</text>
+  <rect x="466" y="104" width="128" height="54" rx="8" fill="#d29922" fill-opacity=".14"/><text x="530" y="126">大模型校对</text><text x="530" y="144" font-size="10" fill="#8b949e">qwen-plus，只删不改</text>
+  <rect x="612" y="104" width="112" height="54" rx="8" fill="#d29922" fill-opacity=".14"/><text x="668" y="126">词表替换</text><text x="668" y="144" font-size="10" fill="#8b949e">错误 =&gt; 正确</text>
+  <rect x="742" y="104" width="112" height="54" rx="8" fill="#d29922" fill-opacity=".14"/><text x="798" y="126">粘贴到光标</text><text x="798" y="144" font-size="10" fill="#8b949e">也进剪贴板</text>
+</g>
+<g stroke="#8b949e" stroke-width="1.4" marker-end="url(#ar)"><line x1="302" y1="131" x2="318" y2="131"/><line x1="448" y1="131" x2="464" y2="131"/><line x1="594" y1="131" x2="610" y2="131"/><line x1="724" y1="131" x2="740" y2="131"/></g>
+
+<line x1="798" y1="176" x2="798" y2="208" stroke="#8b949e" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="790" y="198" font-size="11" fill="#8b949e" text-anchor="end">文字落进 Claude 的输入框</text>
+
+<!-- ② tmux 控制台 -->
+<rect x="190" y="210" width="680" height="112" rx="10" fill="#161b22" stroke="#58a6ff" stroke-opacity=".7"/>
+<text x="206" y="234" font-size="14" font-weight="800" fill="#58a6ff">② tmux 控制台 · claude-tmux-sessions<tspan font-size="11.5" font-weight="400" fill="#8b949e">　开源 · 本仓库</tspan></text>
+<g font-size="11.5" fill="#e6edf3" text-anchor="middle">
+  <rect x="206" y="250" width="120" height="54" rx="8" fill="#58a6ff" fill-opacity=".14"/><text x="266" y="272">底栏</text><text x="266" y="290" font-size="10" fill="#8b949e">⏸ ✔ ▶ ✓ 计数，能点</text>
+  <rect x="338" y="250" width="120" height="54" rx="8" fill="#58a6ff" fill-opacity=".14"/><text x="398" y="272">选择器</text><text x="398" y="290" font-size="10" fill="#8b949e">全部会话 + 实时预览</text>
+  <rect x="470" y="250" width="120" height="54" rx="8" fill="#58a6ff" fill-opacity=".14"/><text x="530" y="272">侧栏</text><text x="530" y="290" font-size="10" fill="#8b949e">每一轮 · 额度 · 按钮</text>
+  <rect x="602" y="250" width="120" height="54" rx="8" fill="#58a6ff" fill-opacity=".14"/><text x="662" y="272">浮窗</text><text x="662" y="290" font-size="10" fill="#8b949e">lazygit · yazi</text>
+  <rect x="734" y="250" width="120" height="54" rx="8" fill="#58a6ff" fill-opacity=".14"/><text x="794" y="272">换账号 ⇄</text><text x="794" y="290" font-size="10" fill="#8b949e">resume 同一会话</text>
+</g>
+
+<line x1="420" y1="322" x2="420" y2="354" stroke="#8b949e" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="428" y="344" font-size="11" fill="#8b949e">跳过去、派活、换号</text>
+<line x1="300" y1="356" x2="300" y2="324" stroke="#8b949e" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="210" y="344" font-size="11" fill="#8b949e">hooks 上报状态</text>
+
+<!-- ③ Claude Code 会话 -->
+<rect x="190" y="356" width="680" height="112" rx="10" fill="#161b22" stroke="#bc8cff" stroke-opacity=".7"/>
+<text x="206" y="380" font-size="14" font-weight="800" fill="#bc8cff">③ Claude Code 会话 × N<tspan font-size="11.5" font-weight="400" fill="#8b949e">　一个账号管一个项目，账号下一个会话担一个职位</tspan></text>
+<g font-size="11.5" fill="#e6edf3">
+  <rect x="206" y="396" width="318" height="54" rx="8" fill="#bc8cff" fill-opacity=".14"/>
+  <text x="220" y="418" font-weight="800">账号 work · 项目 A</text><text x="220" y="438" font-size="10.5" fill="#8b949e">算法 · 后端 · 前端 · 测试 各一个会话</text>
+  <rect x="536" y="396" width="318" height="54" rx="8" fill="#bc8cff" fill-opacity=".14"/>
+  <text x="550" y="418" font-weight="800">账号 home · 项目 B</text><text x="550" y="438" font-size="10.5" fill="#8b949e">额度各算各的，一个号用完就换号接着聊</text>
+</g>
+
+<line x1="420" y1="468" x2="420" y2="500" stroke="#8b949e" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="428" y="490" font-size="11" fill="#8b949e">会话记录 jsonl、配置文件</text>
+
+<!-- ④ Web 面板 -->
+<rect x="190" y="502" width="680" height="112" rx="10" fill="#161b22" stroke="#39c5cf" stroke-opacity=".7"/>
+<text x="206" y="526" font-size="14" font-weight="800" fill="#39c5cf">④ 本机 Web 面板 · usage-monitor<tspan font-size="11.5" font-weight="400" fill="#8b949e">　未开源 · 127.0.0.1:8765，回头对账用</tspan></text>
+<g font-size="11.5" fill="#e6edf3" text-anchor="middle">
+  <rect x="206" y="542" width="206" height="54" rx="8" fill="#39c5cf" fill-opacity=".14"/><text x="309" y="564">用量</text><text x="309" y="582" font-size="10" fill="#8b949e">几台机器合起来，按小时 × 会话</text>
+  <rect x="424" y="542" width="206" height="54" rx="8" fill="#39c5cf" fill-opacity=".14"/><text x="527" y="564">会话卡片</text><text x="527" y="582" font-size="10" fill="#8b949e">状态、模型、上下文、账号</text>
+  <rect x="642" y="542" width="212" height="54" rx="8" fill="#39c5cf" fill-opacity=".14"/><text x="748" y="564">配置</text><text x="748" y="582" font-size="10" fill="#8b949e">钩子时间线 · MCP · skills · CLAUDE.md</text>
+</g>
+
+<!-- 反馈回路 -->
+<path d="M870 410 C 922 410, 922 120, 872 120" fill="none" stroke="#3fb950" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arg)"/>
+<text x="944" y="150" font-size="11.5" fill="#3fb950" writing-mode="tb" letter-spacing="1">反馈回路：Claude 认出听错的词，写回词表</text>
+</svg>

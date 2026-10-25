@@ -66,6 +66,49 @@ cat > "$H/frame-plain.txt" <<'FRAME'
 ❯
 FRAME
 
+# CLAUDE_TMUX_LANG=en: the same scenes in English, and the scripts render their English UI
+# (the server inherits the variable, so every pane and #() job sees it).
+if [ "${CLAUDE_TMUX_LANG:-}" = en ]; then
+  mkdir -p "$H/.config/claude-tmux" && echo en > "$H/.config/claude-tmux/lang"
+  cat > "$H/frame-api.txt" <<'FRAME'
+> pull the duplicated paging logic in api/handlers into a helper
+
+● Let me first see how each of these handlers pages today.
+
+  Read(api/handlers/users.go)
+  ⎿  Read 210 lines
+
+  Read(api/handlers/orders.go)
+  ⎿  Read 184 lines
+
+● All three hand-roll limit/offset, and orders.go has no upper bound —
+  limit=100000 goes straight to the database. I'll cap it in the helper.
+
+  Write(api/internal/paging/paging.go)
+  ⎿  Wrote 48 lines
+
+● Now switching the three handlers over to it.
+
+  Edit(api/handlers/users.go)
+  ⎿  Updated 1 place
+
+✻ Working… (1m 12s · ↑ 2.1k tokens)
+FRAME
+  cat > "$H/frame-plain.txt" <<'FRAME'
+> run the tests
+
+● Sure.
+
+  Bash(go test ./...)
+  ⎿  ok    api/internal/paging   0.312s
+     ok    api/handlers          1.884s
+
+● All passing.
+
+❯
+FRAME
+fi
+
 tmux "${SOCK[@]}" kill-server 2>/dev/null || true
 sleep 0.3
 

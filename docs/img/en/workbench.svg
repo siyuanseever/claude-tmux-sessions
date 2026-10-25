@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 960 640" font-family="-apple-system, Helvetica Neue, sans-serif" role="img" aria-label="The workbench in four layers: voice input turns speech into text, the tmux console manages sessions, Claude Code sessions do the work, a local web dashboard shows usage and configuration; Claude writes misheard words back into the vocabulary, closing a feedback loop.">
+<rect x="0" y="0" width="960" height="640" rx="14" fill="#0f1419"/>
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#8b949e"/></marker>
+  <marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#3fb950"/></marker>
+  <linearGradient id="me" x1="0" x2="1"><stop offset="0" stop-color="#58a6ff"/><stop offset="1" stop-color="#bc8cff"/></linearGradient>
+</defs>
+
+<text x="24" y="36" font-size="18" font-weight="800" fill="#e6edf3">My Claude Code workbench: talk to assign work, glance for status, look back to audit</text>
+
+<circle cx="84" cy="300" r="48" fill="url(#me)"/>
+<text x="84" y="296" font-size="19" font-weight="800" fill="#fff" text-anchor="middle">Me</text>
+<text x="84" y="318" font-size="11.5" fill="#fff" text-anchor="middle">decisions only</text>
+<rect x="34" y="364" width="100" height="22" rx="11" fill="none" stroke="#30363d"/><text x="84" y="379" font-size="11" fill="#8b949e" text-anchor="middle">voice</text>
+<rect x="34" y="392" width="100" height="22" rx="11" fill="none" stroke="#30363d"/><text x="84" y="407" font-size="11" fill="#8b949e" text-anchor="middle">trackpad clicks</text>
+<path d="M126 276 C 150 200, 160 130, 188 122" fill="none" stroke="#8b949e" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="112" y="214" font-size="11" fill="#8b949e">speak</text>
+<line x1="132" y1="300" x2="188" y2="262" stroke="#8b949e" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="138" y="262" font-size="11" fill="#8b949e">click</text>
+
+<rect x="190" y="64" width="680" height="112" rx="10" fill="#161b22" stroke="#d29922" stroke-opacity=".7"/>
+<text x="206" y="88" font-size="14" font-weight="800" fill="#d29922">① Voice input · voice-input<tspan font-size="11.5" font-weight="400" fill="#8b949e">   open source · Hammerspoon, hold right ⌘ and speak</tspan></text>
+<g font-size="11.5" fill="#e6edf3" text-anchor="middle">
+  <rect x="206" y="104" width="96" height="54" rx="8" fill="#d29922" fill-opacity=".14"/><text x="254" y="126">Record</text><text x="254" y="144" font-size="10" fill="#8b949e">ffmpeg</text>
+  <rect x="320" y="104" width="128" height="54" rx="8" fill="#d29922" fill-opacity=".14"/><text x="384" y="126">Transcribe</text><text x="384" y="144" font-size="10" fill="#8b949e">qwen3-asr, with fallbacks</text>
+  <rect x="466" y="104" width="128" height="54" rx="8" fill="#d29922" fill-opacity=".14"/><text x="530" y="126">LLM proofread</text><text x="530" y="144" font-size="10" fill="#8b949e">qwen-plus, no rewrites</text>
+  <rect x="612" y="104" width="112" height="54" rx="8" fill="#d29922" fill-opacity=".14"/><text x="668" y="126">Vocabulary</text><text x="668" y="144" font-size="10" fill="#8b949e">wrong =&gt; right</text>
+  <rect x="742" y="104" width="112" height="54" rx="8" fill="#d29922" fill-opacity=".14"/><text x="798" y="126">Paste at cursor</text><text x="798" y="144" font-size="10" fill="#8b949e">and the clipboard</text>
+</g>
+<g stroke="#8b949e" stroke-width="1.4" marker-end="url(#ar)"><line x1="302" y1="131" x2="318" y2="131"/><line x1="448" y1="131" x2="464" y2="131"/><line x1="594" y1="131" x2="610" y2="131"/><line x1="724" y1="131" x2="740" y2="131"/></g>
+
+<line x1="798" y1="176" x2="798" y2="208" stroke="#8b949e" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="790" y="198" font-size="11" fill="#8b949e" text-anchor="end">text lands in Claude's prompt</text>
+
+<rect x="190" y="210" width="680" height="112" rx="10" fill="#161b22" stroke="#58a6ff" stroke-opacity=".7"/>
+<text x="206" y="234" font-size="14" font-weight="800" fill="#58a6ff">② tmux console · claude-tmux-sessions<tspan font-size="11.5" font-weight="400" fill="#8b949e">   open source · this repository</tspan></text>
+<g font-size="11.5" fill="#e6edf3" text-anchor="middle">
+  <rect x="206" y="250" width="120" height="54" rx="8" fill="#58a6ff" fill-opacity=".14"/><text x="266" y="272">Status bar</text><text x="266" y="290" font-size="10" fill="#8b949e">⏸ ✔ ▶ ✓, clickable</text>
+  <rect x="338" y="250" width="120" height="54" rx="8" fill="#58a6ff" fill-opacity=".14"/><text x="398" y="272">Picker</text><text x="398" y="290" font-size="10" fill="#8b949e">all sessions, live view</text>
+  <rect x="470" y="250" width="120" height="54" rx="8" fill="#58a6ff" fill-opacity=".14"/><text x="530" y="272">Sidebar</text><text x="530" y="290" font-size="10" fill="#8b949e">turns · quota · buttons</text>
+  <rect x="602" y="250" width="120" height="54" rx="8" fill="#58a6ff" fill-opacity=".14"/><text x="662" y="272">Pop-ups</text><text x="662" y="290" font-size="10" fill="#8b949e">lazygit · yazi</text>
+  <rect x="734" y="250" width="120" height="54" rx="8" fill="#58a6ff" fill-opacity=".14"/><text x="794" y="272">Switch account ⇄</text><text x="794" y="290" font-size="10" fill="#8b949e">resumes the session</text>
+</g>
+
+<line x1="420" y1="322" x2="420" y2="354" stroke="#8b949e" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="428" y="344" font-size="11" fill="#8b949e">jump, assign, switch account</text>
+<line x1="300" y1="356" x2="300" y2="324" stroke="#8b949e" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="292" y="344" font-size="11" fill="#8b949e" text-anchor="end">hooks report state</text>
+
+<rect x="190" y="356" width="680" height="112" rx="10" fill="#161b22" stroke="#bc8cff" stroke-opacity=".7"/>
+<text x="206" y="380" font-size="14" font-weight="800" fill="#bc8cff">③ Claude Code sessions × N<tspan font-size="11.5" font-weight="400" fill="#8b949e">   one account per project, one session per role</tspan></text>
+<g font-size="11.5" fill="#e6edf3">
+  <rect x="206" y="396" width="318" height="54" rx="8" fill="#bc8cff" fill-opacity=".14"/>
+  <text x="220" y="418" font-weight="800">Account work · project A</text><text x="220" y="438" font-size="10.5" fill="#8b949e">algorithms · backend · frontend · testing, a session each</text>
+  <rect x="536" y="396" width="318" height="54" rx="8" fill="#bc8cff" fill-opacity=".14"/>
+  <text x="550" y="418" font-weight="800">Account home · project B</text><text x="550" y="438" font-size="10.5" fill="#8b949e">own quota; when it runs out, switch and carry on</text>
+</g>
+
+<line x1="420" y1="468" x2="420" y2="500" stroke="#8b949e" stroke-width="1.6" marker-end="url(#ar)"/>
+<text x="428" y="490" font-size="11" fill="#8b949e">transcripts (jsonl), config files</text>
+
+<rect x="190" y="502" width="680" height="112" rx="10" fill="#161b22" stroke="#39c5cf" stroke-opacity=".7"/>
+<text x="206" y="526" font-size="14" font-weight="800" fill="#39c5cf">④ Local web dashboard · usage-monitor<tspan font-size="11.5" font-weight="400" fill="#8b949e">   not open source · 127.0.0.1:8765, for looking back</tspan></text>
+<g font-size="11.5" fill="#e6edf3" text-anchor="middle">
+  <rect x="206" y="542" width="206" height="54" rx="8" fill="#39c5cf" fill-opacity=".14"/><text x="309" y="564">Usage</text><text x="309" y="582" font-size="10" fill="#8b949e">all machines, per hour × session</text>
+  <rect x="424" y="542" width="206" height="54" rx="8" fill="#39c5cf" fill-opacity=".14"/><text x="527" y="564">Session cards</text><text x="527" y="582" font-size="10" fill="#8b949e">state, model, context, account</text>
+  <rect x="642" y="542" width="212" height="54" rx="8" fill="#39c5cf" fill-opacity=".14"/><text x="748" y="564">Configuration</text><text x="748" y="582" font-size="10" fill="#8b949e">hook timeline · MCP · skills · CLAUDE.md</text>
+</g>
+
+<path d="M870 410 C 922 410, 922 120, 872 120" fill="none" stroke="#3fb950" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arg)"/>
+<text x="944" y="110" font-size="11.5" fill="#3fb950" transform="rotate(90 944 110)">feedback loop: Claude spots misheard words, writes them back</text>
+</svg>

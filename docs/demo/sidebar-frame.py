@@ -58,6 +58,18 @@ turns = [
     ("提交一下", "提交了 3f2a91c「抽出分页 helper，补 orders 上限校验」。"),
     ("下一步把 users 列表也接上游标分页", "可以：游标用（创建时间, id），要不要连前端一起改？"),
 ]
+if os.environ.get("CLAUDE_TMUX_LANG") == "en":
+    turns = [
+        ("add a health check endpoint to api", "Done: GET /healthz checks the DB connection and the queue depth."),
+        ("while you're at it, put the timeouts in one place", "Moved them all into config/timeouts.go; they were spread over 4 files."),
+        ("run the whole test suite", "All green: 126 tests in 41 s."),
+        None,  # /compact here
+        ("pull the duplicated paging logic in api/handlers into a helper", "Extracted internal/paging; the three handlers now call it."),
+        ("why does the orders endpoint have no upper limit", "It was missing: limit=100000 went straight to the DB. Capped at 200 now."),
+        ("write unit tests for paging", "Added 9 cases covering the edges (0, negative, over the cap)."),
+        ("commit it", "Committed 3f2a91c \"Extract paging helper, cap orders limit\"."),
+        ("next, move the users list to cursor paging too", "Sure: cursor on (created_at, id). Change the frontend as well?"),
+    ]
 proj = H / ".claude" / "projects" / "demo"
 proj.mkdir(parents=True, exist_ok=True)
 tf = proj / "00000000-0000-4000-8000-000000000000.jsonl"
