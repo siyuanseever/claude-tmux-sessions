@@ -88,6 +88,9 @@ WIDTH = CFG["width"]
 TICK = 60                          # 没有事件时多久醒一次：额度的倒计时按分钟变
 WIDE_MIN = 30                      # 轨迹窗格（tty）至少这么宽才画宽版，窄了画窄版（拖分隔线时跟着变）
 FRAME = 2                          # herdr 给窗格画的边框：tty 比 pane.layout 报的矩形窄 2 列、矮 2 行（实测 51 → 49）
+# 宽版最多挤到 Claude 剩多少列：Claude 自己的 /diff 面板要终端至少 110 列才开得出来
+# （code.claude.com/docs/en/interactive-mode.md「Diff panel」）。放不下宽版就用窄版
+CLAUDE_MIN = 110
 GONE_GRACE = 15                    # Claude 退出后等多少秒才关轨迹：切账号时 Claude 会退出再重启
 LATER = (0.5, 1.5)                 # Claude 状态变了之后再补刷几次：Stop 时最后那条回复还没写进对话记录
 VERSION = re.compile(r"^\d+\.\d+\.\d+$")   # Claude Code 的进程名是版本号
@@ -675,7 +678,13 @@ class Sidebar:
                 self.set_width(1)
             else:
                 tw, sw = self.split_widths()
-                self.set_width(max((self.wide or 0) + FRAME, WIDE_MIN + FRAME, round((tw + sw) * WIDTH)))
+                # 上次的宽度、width 配置里大的那个，但给 Claude 留够 CLAUDE_MIN；实在放不下就停在窄版不动
+                cols = max((self.wide or 0) + FRAME, round((tw + sw) * WIDTH))
+                cols = min(cols, tw + sw - CLAUDE_MIN - FRAME)
+                if cols >= WIDE_MIN + FRAME:
+                    self.set_width(cols)
+                else:
+                    self.say(_t("放不下宽版：要给 Claude 留 {n} 列").format(n=CLAUDE_MIN))
         except (OSError, ValueError, KeyError, HerdrError):
             pass
 
@@ -856,9 +865,26 @@ def open_sidebar(target):
     # plugin.pane.open 没有比例参数，开出来是对半分；把中间那条线往右推到 66 / 34（默认窄版就推到底，
     # herdr 会夹在 0.9）。要对 Claude 那一格做：对轨迹做 resize right 挪的是轨迹**右边**那条线，
     # 右边还有别的窗格（比如 herdr-sidebar 停在右边）时会去挤它（实测把它从 32 列挤到 18 列）
-    call("pane.resize", pane_id=target, direction="right",
-         amount=0.5 - (0.1 if CFG["default_mode"] == "narrow" else WIDTH))
+    ratio = 0.1 if CFG["default_mode"] == "narrow" else wide_ratio(target, pane)
+    call("pane.resize", pane_id=target, direction="right", amount=0.5 - ratio)
     return pane
+
+
+def wide_cols(total):
+    """宽版的列数（窗格矩形）：width 那么宽，但给 Claude 留够 CLAUDE_MIN 列；剩下的放不下宽版就是 0（用窄版）。"""
+    cols = min(round(total * WIDTH), total - CLAUDE_MIN - FRAME)
+    return cols if cols >= WIDE_MIN + FRAME else 0
+
+
+def wide_ratio(target, pane):
+    """刚切出来对半分的那一对窗格：宽版占这条分割的比例；放不下宽版就 0.1（夹到最窄，也就是窄版）。"""
+    try:
+        rects = {p["pane_id"]: p["rect"] for p in call("pane.layout", pane_id=target)["layout"]["panes"]}
+        total = rects[target]["width"] + rects[pane]["width"]
+    except (OSError, ValueError, KeyError, HerdrError):
+        return WIDTH
+    cols = wide_cols(total)
+    return cols / total if cols else 0.1
 
 
 def cmd_toggle():
