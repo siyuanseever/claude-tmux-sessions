@@ -344,3 +344,33 @@ Esc 返回	Esc back
 你说的：	You said:
 {gone} 轮已压缩 · 当前 {n} 轮	{gone} compacted · {n} current
 主界面在 {where}	main screen at {where}
+
+# ---- 换账号（switch_account.py） ------------------------------------------------
+【切账号】要把这个会话换到另一个账号，得先收队：请让 {names} 把手上的结果交回来，然后把它们全部关掉。全部关掉后就停下，别的什么都不用做。	[Account switch] To move this session to another account, the team has to be wound down first: have {names} hand back their results, then shut them all down. Once they are all shut down, stop; nothing else is needed.
+让领队收队（{n} 个队友）	asking the lead to wind down the team ({n} teammates)
+等队友退出（还剩 {n} 个）	waiting for teammates to exit ({n} left)
+已让领队收队，{m} 分钟内队友没退完（还剩 {names}），没再动	asked the lead to wind down, but teammates did not all exit within {m} min ({names} left); stopped
+队友都退了，等领队停下来	teammates exited, waiting for the lead to stop
+队友都退了，但领队一直没停下来，没再动	teammates exited, but the lead never stopped; stopped
+已经是 {to}	already on {to}
+这是当前正在用的窗格	this is the pane you are using
+正在工作或等你确认，没动	busy or waiting for your confirmation; left alone
+它挂着后台任务/定时任务，切换会把它们停掉，没动	it has background/scheduled tasks that switching would stop; left alone
+窗格里没找到交互式 claude 进程	no interactive claude process in this pane
+队友：随领队收队，不单独切	teammate: goes with its lead, not switched on its own
+不是交互式会话（队友/后台），没动	not an interactive session (teammate/background); left alone
+认不出输入框，为防丢字没动	input box not recognized; left alone so no typing is lost
+输入框里有没发出去的字（{d}…），没动	unsent text in the input box ({d}…); left alone
+收过一次队了，窗口里还有队友，没再动	already wound down once, but teammates are still here; stopped
+（演练）会先让领队收队（{names}），收完再退出重启	(dry run) would ask the lead to wind down ({names}), then exit and restart
+（演练）会原地重启：{line}	(dry run) would restart in place: {line}
+（演练）会退出再执行：{line}	(dry run) would exit, then run: {line}
+{pane} 退出	{pane} exiting
+它有后台任务，退出会停掉它们，已取消退出，没动	it has background tasks that exiting would stop; exit cancelled, left alone
+它没有退出（可能刚好开始工作），没再动	it did not exit (it may have just started working); stopped
+已切到 {to}，接着原会话	switched to {to}, same session
+已执行 {what}，但 30 秒内没看到它在 {to} 下起来，请看一眼窗格	ran {what}, but it did not come up under {to} within 30 s; check the pane
+排队	queued
+切换中…	switching…
+tmux session 名；不给就看 --pane	tmux session name; without it, use --pane
+没有要切的窗格	No pane to switch
