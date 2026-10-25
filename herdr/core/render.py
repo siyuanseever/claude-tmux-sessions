@@ -296,10 +296,10 @@ def rows_of(stops, busy, opened=None, width=40, expanded=False, here=(), missing
     out = []
     gone_n = sum(1 for st in stops if st["compacted"])
     if gone_n:
-        span = f"#1–#{gone_n}" if gone_n > 1 else "#1"
         act = _t("点这里收起") if expanded else _t("点开展开")
-        out.append(f"{UNFOLD if expanded else FOLD}\t{DIM}"
-                   f"{_t('{span} 已压缩（{n} 轮）· {act}').format(span=span, n=gone_n, act=act)}{RESET}")
+        # 轮号前不写「#」，提示里写成「第 N 轮」（用户定的，和 Claude Code 版一致）
+        text = (_t("第 1–{n} 轮已压缩 · {act}") if gone_n > 1 else _t("第 1 轮已压缩 · {act}")).format(n=gone_n, act=act)
+        out.append(f"{UNFOLD if expanded else FOLD}\t{DIM}{text}{RESET}")
     for n, st in enumerate(stops, 1):
         if st["compacted"] and not expanded:
             continue
@@ -312,7 +312,7 @@ def rows_of(stops, busy, opened=None, width=40, expanded=False, here=(), missing
         if st["id"] in missing:
             gone += " · " + _t("主界面已无")
         mark = f"{CYAN}┃{RESET}" if n - 1 in here else " "
-        meta = f"{mark}{DIM}#{n} {when(st['ts'])}{gone}{RESET}"
+        meta = f"{mark}{DIM}{n} {when(st['ts'])}{gone}{RESET}"
         if st["id"] in missing:
             ask = f"{DIM}{ask}{RESET}"
         if st["id"] == opened and st["kind"] == "human":
@@ -324,17 +324,17 @@ def rows_of(stops, busy, opened=None, width=40, expanded=False, here=(), missing
 
 
 def narrow_rows_of(stops, busy, width, expanded=False, missing=frozenset()):
-    """窄版：每轮一行，轮号加你那句话的前几个字（`#41 那我们`），不放回复的开头。"""
+    """窄版：每轮一行，轮号加你那句话的前几个字（`41 那我们`），不放回复的开头。"""
     room = max(4, width - 3)                       # 左边 2 列 + 指针
     out = []
     gone_n = sum(1 for st in stops if st["compacted"])
     if gone_n:
         out.append(f"{UNFOLD if expanded else FOLD}\t"
-                   + clip(f"{DIMC}#1–#{gone_n} {'−' if expanded else '+'}{RESET}", room))
+                   + clip(f"{DIMC}1–{gone_n} {'−' if expanded else '+'}{RESET}", room))
     for n, st in enumerate(stops, 1):
         if st["compacted"] and not expanded:
             continue
         ask = oneline(st["prompt"]) if st["kind"] == "human" else _t("（{p}）").format(p=st["prompt"])
         colour = (BUSY_C if busy and n == len(stops) else DIMC if st["id"] in missing else "")
-        out.append(f"{st['id']}\t" + clip(f"{DIMC}#{n}{RESET} {colour}{ask}", room) + RESET)
+        out.append(f"{st['id']}\t" + clip(f"{DIMC}{n}{RESET} {colour}{ask}", room) + RESET)
     return "\0".join(out)

@@ -11,7 +11,7 @@ Two plugins live in this repository, one per host. Pick the one for where you ru
 | | Where it runs | Install |
 |---|---|---|
 | [`herdr/`](herdr/) | a pane docked to the right of Claude Code in [herdr](https://herdr.dev) | `herdr plugin install siyuanseever/statetrail/herdr` |
-| [`claude-code/`](claude-code/) | inside Claude Code itself | coming soon |
+| `claude-code/` | inside Claude Code itself | coming soon |
 
 Using tmux instead? The trail started as part of
 [claude-tmux-sessions](https://github.com/siyuanseever/claude-tmux-sessions), a tmux setup for running many Claude

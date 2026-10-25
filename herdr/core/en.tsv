@@ -10,7 +10,8 @@ fzf 要 {need} 以上，现在是 {have}	fzf {need}+ required, found {have}
 {n} 分钟前	{n}m ago
 {n} 小时前	{n}h ago
 {n} 轮	{n} turns
-{span} 已压缩（{n} 轮）· {act}	{span} compacted ({n} turns) · {act}
+第 1–{n} 轮已压缩 · {act}	turns 1–{n} compacted · {act}
+第 1 轮已压缩 · {act}	turn 1 compacted · {act}
 主界面已无	gone from main screen
 令牌已过期，开一次 Claude Code 会自动续上	Token expired; opening Claude Code once renews it
 你说的：	You said:
