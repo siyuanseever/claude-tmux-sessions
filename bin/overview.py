@@ -44,6 +44,8 @@ import time
 BIN_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BIN_DIR)
 import agent_teams                                            # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+from i18n import t as _t  # noqa: E402  界面文字：zh 原样，en 查 lib/en.tsv
 import effective_status                                       # noqa: E402
 
 # session-digest.py can't be imported by name (the hyphen isn't a legal
@@ -216,18 +218,18 @@ def render_head(st, width):
     c = counts_of(st["rows"])
     need = c.get("wait", 0) + c.get("done", 0)
     if c.get("wait"):
-        head = f"{RED}{c['wait']} 个等你确认{RESET}"
+        head = f"{RED}{_t('{n} 个等你确认').format(n=c['wait'])}{RESET}"
     elif c.get("done"):
-        head = f"{GREEN}{c['done']} 个有结果等你看{RESET}"
+        head = f"{GREEN}{_t('{n} 个有结果等你看').format(n=c['done'])}{RESET}"
     elif c.get("run"):
-        head = f"{DIM}没人等你 · {c['run']} 个还在跑{RESET}"
+        head = f"{DIM}{_t('没人等你 · {n} 个还在跑').format(n=c['run'])}{RESET}"
     else:
-        head = f"{DIM}没人等你 · 也没人在跑{RESET}"
-    out = [f" {BOLD}舰桥{RESET}  {DIM}{time.strftime('%H:%M')}{RESET}  {head}"]
-    tail = (f"{len(st['order'])} 个 session · 在册 {len(st['rows'])} · "
-            f"在跑 {c.get('run', 0)} · 等你 {need} · 已读 {c.get('read', 0)}")
+        head = f"{DIM}{_t('没人等你 · 也没人在跑')}{RESET}"
+    out = [f" {BOLD}{_t('舰桥')}{RESET}  {DIM}{time.strftime('%H:%M')}{RESET}  {head}"]
+    tail = _t("{s} 个 session · 在册 {n} · 在跑 {run} · 等你 {need} · 已读 {read}").format(
+        s=len(st['order']), n=len(st['rows']), run=c.get('run', 0), need=need, read=c.get('read', 0))
     if c.get("stale"):
-        tail += f" · 放久了 {c['stale']}"
+        tail += " · " + _t("放久了 {n}").format(n=c['stale'])
     out.append(f" {DIM}{sd.clip(tail, max(20, width - 2))}{RESET}")
     return "\n".join(out)
 
@@ -271,9 +273,9 @@ def render_rows(st, width):
                 bits.append(f"{colour}{icon} {c[kind]}{RESET}")
         quiet = c.get("stale", 0) + c.get("read", 0)
         if quiet:
-            bits.append(f"{DIM}+{quiet} 安静{RESET}")
+            bits.append(f"{DIM}{_t('+{n} 安静').format(n=quiet)}{RESET}")
         teams = sorted(st["teams_in"].get(session, ()))
-        team_bit = f"  {CYAN}编队 {sd.clip(teams[0], 20)}{RESET}" if teams else ""
+        team_bit = f"  {CYAN}{_t('编队 {team}').format(team=sd.clip(teams[0], 20))}{RESET}" if teams else ""
         if len(teams) > 1:
             team_bit += f"{CYAN}+{len(teams) - 1}{RESET}"
         # A blank line between cards, except before the first: the gap is
@@ -302,7 +304,7 @@ def render_rows(st, width):
                     continue
                 sgr = f"\033[{m['sgr']}m" if m.get("sgr") else ""
                 off = RESET if sgr else ""
-                why = "没有 pane" if not m["pane"] else f"{m['pane']} 没在跟踪"
+                why = _t("没有 pane") if not m["pane"] else _t("{pane} 没在跟踪").format(pane=m['pane'])
                 line = (f"   {DIM}——{RESET}      {sgr}"
                         f"{sd.pad(sd.clip(m['name'], name_w), name_w)}{off}"
                         f"  {DIM}{why}{RESET}")
@@ -362,15 +364,16 @@ def fmt_tok(n):
 
 
 def field(label, value):
-    return f"{CYAN}{sd.pad(label, LABEL_W)}{RESET}{value}"
+    return f"{CYAN}{sd.pad(_t(label), LABEL_W)}{RESET}{value}"
 
 
 def token_line(rec):
     if not rec:
         return None
     avg = rec["ctx"] // rec["turns"] if rec.get("turns") else 0
-    return (f"读入 {fmt_tok(rec.get('read', 0))} · {rec.get('turns', 0):,} 轮 · "
-            f"{YELLOW}均/轮 {fmt_tok(avg)}{RESET}")
+    return (f"{_t('读入 {n}').format(n=fmt_tok(rec.get('read', 0)))} · "
+            f"{_t('{n} 轮').format(n=format(rec.get('turns', 0), ','))} · "
+            f"{YELLOW}{_t('均/轮 {n}').format(n=fmt_tok(avg))}{RESET}")
 
 
 def rule(w):
@@ -386,7 +389,7 @@ def pane_card(st, pane, w, tok):
     cost today."""
     r = st["by_pane"].get(pane)
     if r is None:
-        return f"{DIM}这个 pane 已经不在了。{RESET}"
+        return f"{DIM}{_t('这个 pane 已经不在了。')}{RESET}"
     e = r["entry"]
     label, when = state_cell(r)
     out = [f"{label}  {BOLD}{sd.clip(r['name'], w - 24)}{RESET}  {DIM}{when}{RESET}",
@@ -410,13 +413,13 @@ def pane_card(st, pane, w, tok):
     if m:
         head = f"{m['label']} {m['name']}"
         if m.get("type"):
-            head += f" · 类型 {m['type']}"
+            head += " · " + _t("类型 {type}").format(type=m['type'])
         out.append(field("编队", f"{sd.clip(m['team'], 20)} · {head}"))
         if m.get("doing"):
             num = f"#{m['doing_id']} " if m.get("doing_id") else ""
             out.append(field("在做", sd.clip(num + m["doing"], w - LABEL_W)))
         if m.get("inbox"):
-            out.append(field("信箱", f"{RED}{m['inbox']} 条未读{RESET}"))
+            out.append(field("信箱", f"{RED}{_t('{n} 条未读').format(n=m['inbox'])}{RESET}"))
 
     line = token_line(tok.get(r["sid"]))
     if line:
@@ -425,7 +428,7 @@ def pane_card(st, pane, w, tok):
         out.append(field("开场", sd.clip(task, w - LABEL_W)))
     out.append(field("更新", time.strftime(
         "%m-%d %H:%M", time.localtime(e.get("updated_at", time.time())))
-        + (f"  {DIM}已读{RESET}" if e.get("read") else "")))
+        + (f"  {DIM}{_t('已读')}{RESET}" if e.get("read") else "")))
     if r["sid"]:
         out.append(field("会话", f"{DIM}{r['sid'][:8]}{RESET}"))
     return "\n".join(out)
@@ -437,21 +440,21 @@ def session_card(st, session, w, tok):
     lot of them have cost today."""
     rows = st["sessions"].get(session)
     if not rows:
-        return f"{DIM}这个 session 已经不在了。{RESET}"
+        return f"{DIM}{_t('这个 session 已经不在了。')}{RESET}"
     c = counts_of(rows)
-    out = [f"{BOLD}{sd.clip(session, w - 12)}{RESET}  {DIM}{len(rows)} 个 pane{RESET}",
+    out = [f"{BOLD}{sd.clip(session, w - 12)}{RESET}  {DIM}{_t('{n} 个 pane').format(n=len(rows))}{RESET}",
            rule(w)]
     bits = []
     for kind, word in (("wait", "等确认"), ("done", "有结果"), ("run", "在跑")):
         if c.get(kind):
             icon, colour = BUCKET_ICON[kind]
-            bits.append(f"{colour}{icon} {word} {c[kind]}{RESET}")
+            bits.append(f"{colour}{icon} {_t(word)} {c[kind]}{RESET}")
     # The quiet two get words and no icon: aged-out DONE and READ would
     # otherwise be drawn with the same tick as the unread ones, and telling
     # them apart by intensity alone is exactly the mistake to avoid here.
     for kind, word in (("stale", "放久了"), ("read", "已读")):
         if c.get(kind):
-            bits.append(f"{DIM}{word} {c[kind]}{RESET}")
+            bits.append(f"{DIM}{_t(word)} {c[kind]}{RESET}")
     out.append(field("状态", " · ".join(bits) if bits else "—"))
 
     wins = sorted({r["where"] for r in rows})
@@ -466,18 +469,18 @@ def session_card(st, session, w, tok):
         if not t:
             continue
         k = t["counts"]
-        out.append(field("编队", f"{CYAN}{sd.clip(team, 20)}{RESET} {DIM}· 队员 "
-                                f"{len(t['members'])} · 在做 {k['in_progress']} · 待领 "
-                                f"{k['pending']} · 挡住 {k['blocked']} · 完成 "
+        out.append(field("编队", f"{CYAN}{sd.clip(team, 20)}{RESET} {DIM}· "
+                                f"{_t('队员 {n}').format(n=len(t['members']))} · {_t('在做')} {k['in_progress']} · "
+                                f"{_t('待领')} {k['pending']} · {_t('挡住')} {k['blocked']} · {_t('完成')} "
                                 f"{k['completed']}{RESET}"))
         inbox = sum(x["inbox"] for x in t["members"])
         if inbox:
-            out.append(field("信箱", f"{RED}{inbox} 条未读{RESET}"))
+            out.append(field("信箱", f"{RED}{_t('{n} 条未读').format(n=inbox)}{RESET}"))
 
     read = sum((tok.get(r["sid"]) or {}).get("read", 0) for r in rows)
     turns = sum((tok.get(r["sid"]) or {}).get("turns", 0) for r in rows)
     if turns:
-        out.append(field("今日", f"读入 {fmt_tok(read)} · {turns:,} 轮"))
+        out.append(field("今日", f"{_t('读入 {n}').format(n=fmt_tok(read))} · {_t('{n} 轮').format(n=format(turns, ','))}"))
 
     # The same panes as the list on the left, with one column the list has
     # no room for: what each has read in today. Without it this block would
@@ -500,9 +503,9 @@ def member_card(st, ref, w):
     t = next((x for x in st["snap"]["teams"] if x["team"] == team), None)
     m = next((x for x in (t["members"] if t else []) if x["name"] == name), None)
     if not m:
-        return f"{DIM}花名册里已经没有这个成员了。{RESET}"
+        return f"{DIM}{_t('花名册里已经没有这个成员了。')}{RESET}"
     sgr = f"\033[{m['sgr']}m" if m.get("sgr") else ""
-    out = [f"{sgr}{BOLD}{sd.clip(name, w - 14)}{RESET}  {DIM}没有 pane{RESET}", rule(w)]
+    out = [f"{sgr}{BOLD}{sd.clip(name, w - 14)}{RESET}  {DIM}{_t('没有 pane')}{RESET}", rule(w)]
     out.append(field("编队", sd.clip(team, w - LABEL_W)))
     out.append(field("角色", m.get("label") or "—"))
     if m.get("type"):
@@ -511,14 +514,15 @@ def member_card(st, ref, w):
         num = f"#{m['doing_id']} " if m.get("doing_id") else ""
         out.append(field("在做", sd.clip(num + m["doing"], w - LABEL_W)))
     if m.get("inbox"):
-        out.append(field("信箱", f"{RED}{m['inbox']} 条未读{RESET}"))
+        out.append(field("信箱", f"{RED}{_t('{n} 条未读').format(n=m['inbox'])}{RESET}"))
     out.append("")
     if m["pane"]:
-        out.append(f"{DIM}花名册里写着 {m['pane']},但那个 pane 没在跟踪 —— "
-                   f"可能已经关了,或者里面的 Claude 从没发过 hook。{RESET}")
+        out.append(f"{DIM}" + _t("花名册里写着 {pane},但那个 pane 没在跟踪 —— "
+                                 "可能已经关了,或者里面的 Claude 从没发过 hook。").format(pane=m['pane'])
+                   + RESET)
     else:
-        out.append(f"{DIM}花名册里有它,但没有对应的 tmux pane,所以跳不过去。"
-                   f"队员只有真正跑起来过才会有 pane。{RESET}")
+        out.append(f"{DIM}" + _t("花名册里有它,但没有对应的 tmux pane,所以跳不过去。"
+                                 "队员只有真正跑起来过才会有 pane。") + RESET)
     return "\n".join(out)
 
 

@@ -5,15 +5,15 @@
 set -euo pipefail
 
 STATUS_FILE="$HOME/.claude/tmux-claude-status.json"
-
-if [ ! -s "$STATUS_FILE" ]; then
-  tmux display-message "没有追踪到任何 Claude Code pane"
-  exit 0
-fi
-
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 [ -L "$SCRIPT_PATH" ] && SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
 BIN_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+. "$BIN_DIR/../lib/i18n.sh"
+
+if [ ! -s "$STATUS_FILE" ]; then
+  t "没有追踪到任何 Claude Code pane"; tmux display-message "$T"
+  exit 0
+fi
 
 # Clean out stale entries (dead pane / Claude exited) so we never jump to
 # a pane whose Claude is long gone.
@@ -84,7 +84,7 @@ PYEOF
 case "${1:-}" in %*) pane_id="$1" ;; esac
 
 if [ -z "$pane_id" ]; then
-  tmux display-message "没有需要处理的 pane"
+  t "没有需要处理的 pane"; tmux display-message "$T"
   exit 0
 fi
 
@@ -92,7 +92,7 @@ fi
 # for a pane id that no longer exists, so this guard never fired. See the same
 # fix in claude-tmux-picker.sh.
 if ! tmux has-session -t "$pane_id" 2>/dev/null; then
-  tmux display-message "pane 已经不存在了 ($pane_id)"
+  t "pane 已经不存在了 (%s)"; tmux display-message "$(printf "$T" "$pane_id")"
   exit 0
 fi
 

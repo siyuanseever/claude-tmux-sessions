@@ -44,5 +44,8 @@ fi
 if [ -n "${JUMP_WARN_FILE:-}" ] && [ -s "$JUMP_WARN_FILE" ]; then
   echo "transform-footer(cat $JUMP_WARN_FILE)"
 else
-  echo "change-footer(  这里没有可以跳过去的 pane)"
+  # 不能带括号：fzf 按括号配对解析 change-footer(…)
+  BIN_DIR="$(cd "$(dirname "$(readlink "$0" || echo "$0")")" && pwd)"
+  . "$BIN_DIR/../lib/i18n.sh"
+  t "这里没有可以跳过去的 pane"; echo "change-footer(  $T)"
 fi

@@ -26,6 +26,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import claude_trail as ct  # noqa: E402
+from i18n import t as _t  # noqa: E402  claude_trail 已经把 lib/ 放进 sys.path；常驻进程，改语言后要重启（sidebar/install.sh）
 
 RUN = Path.home() / ".local" / "state" / "claude-trail" / "run"   # <侧栏窗格>.rows / .port
 TICK = 1.0               # 整轮检查的间隔
@@ -141,19 +142,19 @@ def rows_of(tr, busy, opened=None, width=40, expanded=False, here=(), missing=fr
     gone_n = sum(1 for st in stops if st["compacted"])
     if gone_n:
         span = f"#1–#{gone_n}" if gone_n > 1 else "#1"
-        act = "点这里收起" if expanded else "点开展开"
-        out.append(f"{UNFOLD if expanded else FOLD}\t{ct.DIM}{span} 已压缩（{gone_n} 轮）· {act}{ct.RESET}")
+        act = _t("点这里收起") if expanded else _t("点开展开")
+        out.append(f"{UNFOLD if expanded else FOLD}\t{ct.DIM}{_t('{span} 已压缩（{n} 轮）· {act}').format(span=span, n=gone_n, act=act)}{ct.RESET}")
     for n, st in enumerate(stops, 1):
         if st["compacted"] and not expanded:
             continue
-        ask = ct._oneline(st["prompt"])[:300] if st["kind"] == "human" else f"（{st['prompt']}）"
+        ask = ct._oneline(st["prompt"])[:300] if st["kind"] == "human" else _t("（{p}）").format(p=st['prompt'])
         if busy and n == len(stops):
-            reply = "（Claude 还在干活…）"
+            reply = _t("（Claude 还在干活…）")
         else:
-            reply = st["reply"] or "（没有文字回复）"
-        gone = " · 已压缩" if st["compacted"] else ""
+            reply = st["reply"] or _t("（没有文字回复）")
+        gone = " · " + _t("已压缩") if st["compacted"] else ""
         if st["id"] in missing:
-            gone += " · 主界面已无"
+            gone += " · " + _t("主界面已无")
         # 最左一列：主界面屏幕上正显示着的轮次画一条亮边（相当于滚动条的滑块），其它留空
         mark = f"{CYAN}┃{ct.RESET}" if n - 1 in here else " "
         meta = f"{mark}{ct.DIM}#{n} {ct._when(st['ts'])}{gone}{ct.RESET}"
@@ -161,7 +162,7 @@ def rows_of(tr, busy, opened=None, width=40, expanded=False, here=(), missing=fr
             ask = f"{ct.DIM}{ask}{ct.RESET}"
         if st["id"] == opened and st["kind"] == "human":
             body = "\n".join(" " + mark + " " + ln for ln in wrap(st["prompt"].strip(), max(10, width - 4)))
-            out.append(f"{st['id']}\t{meta} {ct.BOLD}你说的：{ct.RESET}\n{body}\n {mark} {ct.DIM}{reply}{ct.RESET}")
+            out.append(f"{st['id']}\t{meta} {ct.BOLD}{_t('你说的：')}{ct.RESET}\n{body}\n {mark} {ct.DIM}{reply}{ct.RESET}")
             continue
         out.append(f"{st['id']}\t{meta} {ask}\n {mark} {ct.DIM}{reply}{ct.RESET}")
     return "\0".join(out)
@@ -180,20 +181,22 @@ def header_of(tr, path, extra=(), usage=None, view=None, git_n=None, cfg="", sw=
     """第 1 行轮数，第 2 行图标按钮 + 刷新状态，后面跟 status_lines 的模型和额度几行。
     claude_trail.cmd_click 按行号认按钮，挪行要两边一起改。"""
     if tr is None:
-        head = "这个窗格里没找到 Claude 会话"
+        head = _t("这个窗格里没找到 Claude 会话")
     else:
         # 不写会话标题：侧栏就贴在那个 Claude 旁边，标题 tmux 的窗口名上已经有了
         # （2026-10-08 用户：「第一行的那个 claude name 也没有必要，因为就这一个 name，
         # 在 tmux 上已经显示了，没必要再显示一次」）。
         stops = tr.visible()
         gone_n = sum(1 for st in stops if st["compacted"])
-        head = f"{gone_n} 轮已压缩 · 当前 {len(stops) - gone_n} 轮" if gone_n else f"{len(stops)} 轮"
+        head = (_t("{gone} 轮已压缩 · 当前 {n} 轮").format(gone=gone_n, n=len(stops) - gone_n) if gone_n
+                else _t("{n} 轮").format(n=len(stops)))
     if tr is not None and view:
         here, bottom = view
         # 在最底是常态，写出来没有信息量（2026-10-23 用户：「主界面在最底这句话没有任何意义」）；
         # 只在主界面往上翻了的时候说停在哪几轮
         if not bottom and here:
-            head += f" · 主界面在 #{here[0] + 1}" + (f"–#{here[-1] + 1}" if here[-1] != here[0] else "")
+            head += " · " + _t("主界面在 {where}").format(
+                where=f"#{here[0] + 1}" + (f"–#{here[-1] + 1}" if here[-1] != here[0] else ""))
     return "\n".join([head, ct.buttons_line(usage, git_n, cfg, sw), *extra])
 
 

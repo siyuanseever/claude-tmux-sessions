@@ -14,7 +14,8 @@
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 SELF="$HERE/$(basename "$0")"
-T="python3 '$HERE/claude_trail.py'"
+TRAIL="python3 '$HERE/claude_trail.py'"
+. "$HERE/../lib/i18n.sh"              # t "中文" → $T
 RUN="$HOME/.local/state/claude-trail/run"
 
 if [ "${1:-}" = --run ]; then
@@ -25,13 +26,14 @@ if [ "${1:-}" = --run ]; then
   # 滚轮只滚列表、不挪选中行（offset-*），滚起来快。
   # left-click 在 fzf 把选中行挪到被点的那项之后才触发，所以 {1} 就是点中的那一轮：
   # 写进 .open（常驻进程 0.1 秒内重画，把这一项展开），同时后台让主界面跳过去。
+  t "加载中…"; loading="$T"
   exec fzf --read0 --ansi --no-input --no-sort --layout=reverse --sync \
       --track --id-nth=1 --delimiter='\t' --with-nth='2..' \
       --highlight-line --gap --info=hidden --pointer='▌' --no-scrollbar --ellipsis='…' \
-      --listen --header $'加载中…\n' --header-border=bottom \
+      --listen --header "$loading"$'\n' --header-border=bottom \
       --bind "start:execute-silent(echo \$FZF_PORT > '$RUN/$me.port')" \
-      --bind "left-click:execute-silent(echo {1} > '$RUN/$me.open'; $T jump $pane {1} >/dev/null 2>&1 &)" \
-      --bind "click-header:transform($T click $pane \$FZF_CLICK_HEADER_LINE \$FZF_CLICK_HEADER_COLUMN {1})" \
+      --bind "left-click:execute-silent(echo {1} > '$RUN/$me.open'; $TRAIL jump $pane {1} >/dev/null 2>&1 &)" \
+      --bind "click-header:transform($TRAIL click $pane \$FZF_CLICK_HEADER_LINE \$FZF_CLICK_HEADER_COLUMN {1})" \
       --bind 'scroll-up:offset-up+offset-up+offset-up,scroll-down:offset-down+offset-down+offset-down' \
       --bind 'enter:ignore,double-click:ignore,esc:ignore' < "$rows"
 fi
@@ -78,7 +80,7 @@ if [ -n "$open" ]; then
   exit 0
 fi
 if ! python3 "$HERE/claude_trail.py" has "$caller"; then
-  tmux display-message -t "$caller" "轨迹：这个窗格里没找到 Claude 会话"
+  t "轨迹：这个窗格里没找到 Claude 会话"; tmux display-message -t "$caller" "$T"
   exit 0
 fi
 

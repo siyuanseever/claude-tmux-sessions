@@ -21,6 +21,9 @@ import sys
 import time
 import unicodedata
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+from i18n import t as _t, dur, EN  # noqa: E402  界面文字：zh 原样，en 查 lib/en.tsv
+
 STATUS_FILE = os.path.expanduser("~/.claude/tmux-claude-status.json")
 PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
 
@@ -276,22 +279,16 @@ def fmt_age(rank, secs):
     (same logic as list-rows.sh): RUN = how long it's been running since
     the prompt was submitted, WAIT = since the permission prompt appeared,
     IDLE = since it started waiting on input, DONE = since it finished."""
-    secs = max(0, int(secs))
-    if secs < 60:
-        d = f"{secs}秒"
-    elif secs < 3600:
-        d = f"{secs // 60}分钟"
-    else:
-        d = f"{secs / 3600:.1f}".rstrip("0").rstrip(".") + "小时"
+    d = dur(secs)
     if rank == 2:
-        return f"已运行 {d}"
+        return _t("已运行 {d}").format(d=d)
     if rank == -1:
-        return f"等确认 {d}"
+        return _t("等确认 {d}").format(d=d)
     if rank == 0:
-        return f"等输入 {d}"
+        return _t("等输入 {d}").format(d=d)
     if rank == 1:
-        return f"完成 {d}前"
-    return f"{d}前"  # READ — since it last finished something
+        return _t("完成 {d}前").format(d=d)
+    return _t("{d}前").format(d=d)  # READ — since it last finished something
 
 
 def effective(data, teams=True):
@@ -436,23 +433,23 @@ def pane_team_lines(pane, data, width, limit=4):
     # made of blanks.
     if m and (m.get("is_mate") or m.get("is_lead")):
         lines = []
-        head = f"编队 {m['team']} · {m['label']} {m['name']}"
+        head = _t("编队 {team}").format(team=m['team']) + f" · {m['label']} {m['name']}"
         if m.get("type"):
-            head += f" · 类型 {m['type']}"
+            head += " · " + _t("类型 {type}").format(type=m['type'])
         lines.append(CYAN + clip(head, width) + RESET)
         if m.get("doing"):
             num = f"#{m['doing_id']} " if m.get("doing_id") else ""
-            doing = "在做 " + clip(num + m["doing"], width - 5)
+            doing = _t("在做") + " " + clip(num + m["doing"], width - 5)
             # What that task is still waiting on, appended the same way and
             # with the same wording the shared task list uses. It was only
             # ever printed there, so a member holding blocked work looked
             # busy from its own pane and stuck from the session header —
             # one fact, two surfaces, and only one of them said it.
             if m.get("doing_waiting"):
-                doing += DIM + f"  等 #{m['doing_waiting'][0]}" + RESET
+                doing += DIM + "  " + _t("等 #{n}").format(n=m['doing_waiting'][0]) + RESET
             lines.append(doing)
         if m.get("inbox"):
-            lines.append(f"信箱 {m['inbox']} 条未读")
+            lines.append(_t("信箱 {n} 条未读").format(n=m['inbox']))
         for ln in lines[:limit]:
             print(ln)
         return
@@ -467,18 +464,18 @@ def pane_team_lines(pane, data, width, limit=4):
         bits = []
         n_mate = sum(1 for x in t["members"] if not x["is_lead"])
         if n_mate:
-            bits.append(f"{agent_teams_module().MEMBER_LABEL} {n_mate}")
+            bits.append(_t("队员 {n}").format(n=n_mate))
         # The same four counts the session header carries, in the same
         # order and with zeroes dropped the same way — this is a second
         # view of one number, not a second number.
         for key, word in (("in_progress", "在做"), ("pending", "待领"),
                           ("blocked", "挡住")):
             if c.get(key):
-                bits.append(f"{word} {c[key]}")
+                bits.append(f"{_t(word)} {c[key]}")
         inbox = sum(x["inbox"] for x in t["members"])
         if inbox:
-            bits.append(f"信箱 {inbox}")
-        head = f"编队 {team}"
+            bits.append(_t("信箱 {n}").format(n=inbox))
+        head = _t("编队 {team}").format(team=team)
         if bits:
             head += " · " + " · ".join(bits)
         print(CYAN + clip(head, width) + RESET)
@@ -517,7 +514,7 @@ def team_board(team):
         return
     width = max(30, int(os.environ.get("FZF_PREVIEW_COLUMNS", 80)) - 2)
 
-    print(BOLD + CYAN + clip(f"编队 {t['team']}", width) + RESET)
+    print(BOLD + CYAN + clip(_t("编队 {team}").format(team=t['team']), width) + RESET)
     now = time.time()
     for m in t["members"]:
         e = data.get(m["pane"]) if m["pane"] else None
@@ -530,9 +527,9 @@ def team_board(team):
             # through a full turn, so this is the normal look of one that
             # started moments ago — not an error, and not worth alarming
             # about.
-            label, when = DIM + "— " + RESET, "状态未知"
+            label, when = DIM + "— " + RESET, _t("状态未知")
         else:
-            label, when = DIM + "— " + RESET, "没有对应 pane"
+            label, when = DIM + "— " + RESET, _t("没有对应 pane")
         tail = []
         if m.get("doing"):
             num = f"#{m['doing_id']} " if m.get("doing_id") else ""
@@ -556,7 +553,7 @@ def team_board(team):
     if not ts:
         return
     print(DIM + "─" * width + RESET)
-    print(f"共享任务表(未完成 {len(ts)})")
+    print(_t("共享任务表(未完成 {n})").format(n=len(ts)))
     # Borrowed, not reimplemented: "is this blocker still blocking" is one
     # question with one answer, and it is asked from here, from the counts,
     # and from a member's current task. A local copy of the set comprehension
@@ -567,14 +564,16 @@ def team_board(team):
         owner = x.get("owner") or ""
         status = x.get("status")
         waiting = at.blockers_of(x, open_ids)
-        word = "在做" if status == "in_progress" else ("挡住" if waiting else "待领")
+        word = _t("在做" if status == "in_progress" else ("挡住" if waiting else "待领"))
+        if EN:   # 中文这三个词都是 4 格；英文长短不一，补齐了后面那列才对得上
+            word = word.ljust(7)
         # An unclaimed task shows a dash rather than a guess. The value of
         # this column is that you can act on it; a name that might be wrong
         # is worse than an obvious blank.
         who = clip(owner, 11) if owner else "——"
         line = f" {word}  {pad(who, 12)}{clip(x.get('subject') or '', width - 22)}"
         if waiting:
-            line += DIM + f"  等 #{waiting[0]}" + RESET
+            line += DIM + "  " + _t("等 #{n}").format(n=waiting[0]) + RESET
         print(line)
 
 
@@ -744,7 +743,7 @@ def main():
             for ln in wrap(recap, width - 2, recap_lines):
                 print(DIM + "▎" + RESET + " " + ln)
         else:
-            print(DIM + "▎ (还没有回复内容)" + RESET)
+            print(DIM + _t("▎ (还没有回复内容)") + RESET)
 
 
 

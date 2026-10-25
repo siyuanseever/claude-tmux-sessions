@@ -24,6 +24,9 @@ import threading
 import tty
 import unicodedata
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+from i18n import t as _t, EN  # noqa: E402  界面文字：zh 原样，en 查 lib/en.tsv
+
 HOME = os.path.expanduser("~")
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME", HOME + "/.local/state"), "sys-monitor")
 DU_CACHE = os.path.join(STATE, "du.json")
@@ -124,8 +127,8 @@ def label(proc, procs, panes):
                 return panes[cur]
             cur = procs.get(cur, {}).get("ppid", 0)
         if "daemon" in args or "bg-" in args:
-            return "claude 后台会话机制（daemon / pty-host）"
-        return "claude（找不到所在窗格）"
+            return _t("claude 后台会话机制（daemon / pty-host）")
+        return _t("claude（找不到所在窗格）")
     if group_of(args) == "python":
         m = re.search(r"([\w.\-/]+\.py)", args)
         return "python " + (os.path.basename(m.group(1)) if m else "")
@@ -257,9 +260,9 @@ def render(width, height, only=None, sel=None, frozen=None, gfilter=None):
     shown = {}    # 榜单 key → 这一屏列出的 pid 顺序，选中时据此固定排序
     gmap, gorder = {}, []   # 软件归类行：屏幕行 → 软件名（点击筛选）；软件名的显示顺序（←→ / Tab 切换）
 
-    titles = {"cpu": "CPU", "mem": "内存", "swap": "内存与交换", "disk": "磁盘"}
-    hint = "q 退出 · r 刷新" + (" · d 重新统计" if only in (None, "disk") else "") + " · 点外面也会关"
-    add(f"{B}{'资源监视' if not only else titles[only]}{O}  {D}{time.strftime('%H:%M:%S')} · {hint}{O}")
+    titles = {"cpu": "CPU", "mem": _t("内存"), "swap": _t("内存与交换"), "disk": _t("磁盘")}
+    hint = _t("q 退出 · r 刷新") + (" · " + _t("d 重新统计") if only in (None, "disk") else "") + " · " + _t("点外面也会关")
+    add(f"{B}{_t('资源监视') if not only else titles[only]}{O}  {D}{time.strftime('%H:%M:%S')} · {hint}{O}")
     add("")
     bw = max(10, min(40, W - (40 if not only else 34)))
     want = lambda *k: only is None or only in k
@@ -267,14 +270,14 @@ def render(width, height, only=None, sel=None, frozen=None, gfilter=None):
     # 总览
     pct = mem["used"] / mem["total"] if mem["total"] else 0
     c = sev(cpu or 0, 60, 85)
-    if want("cpu"): add(f"{B}⚙ CPU{O}   {bar((cpu or 0) / 100, bw, c)} {c}{(cpu or 0):.0f}%{O}  {D}用户 {us:.0f}% 系统 {sy:.0f}% · {ncpu} 核 · 负载 {load[0]:.1f}{O}")
+    if want("cpu"): add(f"{B}⚙ CPU{O}   {bar((cpu or 0) / 100, bw, c)} {c}{(cpu or 0):.0f}%{O}  {D}{_t('用户 {us}% 系统 {sy}% · {n} 核 · 负载 {load}').format(us=format(us, '.0f'), sy=format(sy, '.0f'), n=ncpu, load=format(load[0], '.1f'))}{O}")
     c = sev(pct * 100, 80, 92)
-    if want("mem", "swap"): add(f"{B}▤ 内存{O}  {bar(pct, bw, c)} {c}{gb(mem['used'])}/{gb(mem['total'])}{O}  {D}其中 wired {gb(mem['wired'])} · 压缩器 {gb(mem['comp'])}{O}")
+    if want("mem", "swap"): add(f"{B}{pad(_t('▤ 内存'), 6)}{O}  {bar(pct, bw, c)} {c}{gb(mem['used'])}/{gb(mem['total'])}{O}  {D}{_t('其中 wired {wired} · 压缩器 {comp}').format(wired=gb(mem['wired']), comp=gb(mem['comp']))}{O}")
     sw = mem["swap_used"] / mem["swap_total"] if mem["swap_total"] else 0
     c = sev(mem["swap_used"] / 1073741824, 2, 4)
-    if want("mem", "swap"): add(f"{B}⇅ 交换{O}  {bar(sw, bw, c)} {c}{gb(mem['swap_used'])}/{gb(mem['swap_total'])}{O}  {D}= 拿 SSD 当内存，越多越卡{O}")
+    if want("mem", "swap"): add(f"{B}{pad(_t('⇅ 交换'), 6)}{O}  {bar(sw, bw, c)} {c}{gb(mem['swap_used'])}/{gb(mem['swap_total'])}{O}  {D}{_t('= 拿 SSD 当内存，越多越卡')}{O}")
     c = sev(100 - dfree * 100 / dtot if dtot else 0, 80, 92)
-    if want("disk"): add(f"{B}▣ 磁盘{O}  {bar(dused / dtot if dtot else 0, bw, c)} {c}已用 {gb(dused)}{O} / 共 {gb(dtot)} · 剩 {c}{gb(dfree)}{O}  {D}（数据盘）{O}")
+    if want("disk"): add(f"{B}{pad(_t('▣ 磁盘'), 6)}{O}  {bar(dused / dtot if dtot else 0, bw, c)} {c}{_t('已用 {used}').format(used=gb(dused))}{O} / {_t('共 {total} · 剩').format(total=gb(dtot))} {c}{gb(dfree)}{O}  {D}{_t('（数据盘）')}{O}")
     add("")
 
     def section(title, key, fmt, n_groups, n_procs, total_label):
@@ -286,7 +289,7 @@ def render(width, height, only=None, sel=None, frozen=None, gfilter=None):
             e[1] += 1
             e[2] += p["cpu"]
         total = sum(e[0] for e in by.values()) or 1
-        add(f"{B}{title}{O}  {D}按软件归类（括号里是进程个数）{O}")
+        add(f"{B}{_t(title)}{O}  {D}{_t('按软件归类（括号里是进程个数）')}{O}")
         rows = sorted(by.items(), key=lambda kv: -kv[1][0])[:n_groups]
         if not gorder:
             gorder.extend(g for g, _ in rows)
@@ -295,28 +298,31 @@ def render(width, height, only=None, sel=None, frozen=None, gfilter=None):
             gmap[len(L)] = g
             on = g == gfilter
             mk = f"{B}\033[7m ▶" if on else "  "
-            add(f"{mk} {pad(g, 24)}{bar(share, 14, C)} {fmt(e[0]):>8} {D if not on else ''}{share * 100:3.0f}%  ({e[1]} 个){O}")
+            add(f"{mk} {pad(_t(g), 24)}{bar(share, 14, C)} {fmt(e[0]):>8} {D if not on else ''}{share * 100:3.0f}%  {_t('({n} 个)').format(n=e[1])}{O}")
         if gfilter:
-            add(f"  {Y}筛选中：只看「{gfilter}」{O}{D}　再点一次这一行、或按 a，恢复全部{O}")
+            add(f"  {Y}{_t('筛选中：只看「{g}」').format(g=_t(gfilter))}{O}{D}　{_t('再点一次这一行、或按 a，恢复全部')}{O}")
         add("")
         fkey = f"{key}:{gfilter}"
         if frozen and fkey in frozen:
             top = [procs[x] for x in frozen[fkey] if x in procs]   # 选中后排序固定，只刷新数字
-            note = f"（排序已固定，只刷新数字；按 r 重新排序）"
+            note = _t("（排序已固定，只刷新数字；按 r 重新排序）")
         else:
             if only and height > 0:   # 单项小窗：把剩下的高度都用来列进程
                 n_procs = max(n_procs, height - len(L) - 4)
             pool = [p for p in procs.values() if not gfilter or group_of(p["args"]) == gfilter]
             top = sorted(pool, key=lambda p: -p[key])[:n_procs]
-            note = "（↑↓ 或点击选一个；←→ / Tab 或点上面的软件行来筛选）"
+            note = _t("（↑↓ 或点击选一个；←→ / Tab 或点上面的软件行来筛选）")
         shown[fkey] = [p["pid"] for p in top]
-        add(f"  {B}最大的进程{O} {D}{note}{O}")
-        add(f"{D}   {'CPU':>5} {'     内存'}  {'pid':<6} {'       已开'}  {pad('软件', 12)}名称{O}")
+        add(f"  {B}{_t('最大的进程')}{O} {D}{note}{O}")
+        if EN:   # 中文表头按「两个汉字 = 4 格」排的；英文另排一份，对齐同一套列宽
+            add(f"{D}   {'CPU':>5} {_t('内存').lower():>7}  {'pid':<6} {_t('已开'):>11}  {pad(_t('软件'), 12)}{_t('名称')}{O}")
+        else:
+            add(f"{D}   {'CPU':>5} {'     内存'}  {'pid':<6} {'       已开'}  {pad('软件', 12)}名称{O}")
         for p in top:
             nm = label(p, procs, panes)
             rowmap[len(L)] = p["pid"]
             mark = f"{B}\033[7m ▶" if p["pid"] == sel else "  "
-            gname = group_of(p["args"]).split(" ")[0][:10]
+            gname = _t(group_of(p["args"])).split(" ")[0][:10]
             add(f"{mark} {p['cpu']:4.0f}% {gb(p['rss']):>7}  {p['pid']:<6} {p['et']:>11}  {pad(gname, 12)}{nm[:max(10, W - 52)]}{O}")
         add("")
 
@@ -328,30 +334,31 @@ def render(width, height, only=None, sel=None, frozen=None, gfilter=None):
         return (L[: max(10, height - 1)] if height > 0 else L), rowmap, procs, panes, shown, gmap, gorder
 
     # 磁盘
-    add(f"{B}▣ 谁在占磁盘{O}  {D}共 {gb(dtot)}，已用 {gb(dused)}，剩 {gb(dfree)}{O}")
+    add(f"{B}{_t('▣ 谁在占磁盘')}{O}  {D}{_t('共 {total}，已用 {used}，剩 {free}').format(total=gb(dtot), used=gb(dused), free=gb(dfree))}{O}")
     cache = du_load()
     running = du_refresh_running()
     if cache:
         age = time.time() - cache["ts"]
-        add(f"  {D}家目录下每一项的大小（统计于 {time.strftime('%H:%M', time.localtime(cache['ts']))}，"
-            f"{'正在后台重新统计…' if running else '按 d 重新统计'}）{O}")
+        add(f"  {D}" + _t("家目录下每一项的大小（统计于 {at}，{state}）").format(
+            at=time.strftime('%H:%M', time.localtime(cache['ts'])),
+            state=_t('正在后台重新统计…') if running else _t('按 d 重新统计')) + O)
         mx = cache["home"][0][0] if cache["home"] else 1
         for sz, p in cache["home"]:
             add(f"    {gb(sz):>7} {bar(sz / mx, 12, C)} {short(p)}")
-        add(f"  {D}其中 ~/Library 下面：{O}")
+        add(f"  {D}{_t('其中 ~/Library 下面：')}{O}")
         mx = cache["lib"][0][0] if cache["lib"] else 1
         for sz, p in cache["lib"]:
             add(f"    {gb(sz):>7} {bar(sz / mx, 12, C)} {short(p)}")
         if age > DU_TTL and not running:
             du_start()
     else:
-        add(f"  {Y}还没统计过，正在后台扫家目录（几十秒到几分钟，扫完自动显示）…{O}")
+        add(f"  {Y}{_t('还没统计过，正在后台扫家目录（几十秒到几分钟，扫完自动显示）…')}{O}")
         du_start()
     dk = docker_df()
     if dk:
-        add(f"  {D}Docker（在 Colima 虚拟机的磁盘里，不在上面的家目录统计里单独列出，~/.colima 那一项就是它）：{O}")
+        add(f"  {D}{_t('Docker（在 Colima 虚拟机的磁盘里，不在上面的家目录统计里单独列出，~/.colima 那一项就是它）：')}{O}")
         for t, size, rec in dk:
-            add(f"    {t:<14}{size:>9}   {D}可回收 {rec}{O}")
+            add(f"    {t:<14}{size:>9}   {D}{_t('可回收 {n}').format(n=rec)}{O}")
     return (L[: max(10, height - 1)] if height > 0 else L), rowmap, procs, panes, shown, gmap, gorder
 
 
@@ -364,18 +371,18 @@ ADB = HOME + "/Library/Android/sdk/platform-tools/adb"
 def protected(p, procs):
     """不许关的：系统关键进程、tmux 服务端、别人的进程、这个监视器自己和它的上级。"""
     if p["pid"] <= 1:
-        return "这是系统的 1 号进程"
+        return _t("这是系统的 1 号进程")
     exe = p["args"].split(" -", 1)[0]
     if PROTECTED.search(exe):
-        return "系统关键进程 / 终端本身，关了会让整台电脑或所有终端窗口一起出问题"
+        return _t("系统关键进程 / 终端本身，关了会让整台电脑或所有终端窗口一起出问题")
     if re.search(r"(^|/)tmux( |$)|tmux: server", p["args"]):
-        return "这是 tmux 服务端，关了所有 tmux 窗口和里面的会话都没了"
+        return _t("这是 tmux 服务端，关了所有 tmux 窗口和里面的会话都没了")
     if run("ps", "-o", "user=", "-p", str(p["pid"])).strip() not in (os.environ.get("USER", ""), ""):
-        return "不是你的进程（需要管理员权限，这里不做）"
+        return _t("不是你的进程（需要管理员权限，这里不做）")
     cur = os.getpid()
     for _ in range(8):
         if cur == p["pid"]:
-            return "这是这个监视窗口自己（或它的上级）"
+            return _t("这是这个监视窗口自己（或它的上级）")
         cur = procs.get(cur, {}).get("ppid", 0)
         if cur <= 1:
             break
@@ -403,50 +410,50 @@ def kill_plan(p, procs):
     if g == "安卓模拟器" and "qemu-system" in head_of(args):
         port = (re.search(r"-port (\d+)", args) or [None, "5554"])[1]
         avd = (re.search(r"-avd (\S+)", args) or [None, "?"])[1]
-        return (f"用 adb 让模拟器「{avd}」正常关机（emulator-{port}）", ["adb", f"emulator-{port}"],
-                "它里面没存的东西会丢；别的会话如果正在测它，会被打断。")
+        return (_t("用 adb 让模拟器「{avd}」正常关机（emulator-{port}）").format(avd=avd, port=port), ["adb", f"emulator-{port}"],
+                _t("它里面没存的东西会丢；别的会话如果正在测它，会被打断。"))
     if g == "TCSAS 开发者工具":
-        return ("正常退出 TCSAS 开发者工具", ["quit-app", "TCSAS-Devtools"],
-                "它里面没保存的调试现场会丢；别的会话可能正在用它预览或上传，它们下次用时会自己再开。")
+        return (_t("正常退出 TCSAS 开发者工具"), ["quit-app", "TCSAS-Devtools"],
+                _t("它里面没保存的调试现场会丢；别的会话可能正在用它预览或上传，它们下次用时会自己再开。"))
     if g == "Colima / Docker 虚拟机":
         n = memo("dockerps", 15, lambda: run("docker", "ps", "-q", timeout=5).split())
-        return ("colima stop（正常停掉 Docker 虚拟机）", ["colima-stop"],
-                f"里面 {len(n)} 个容器会全部停掉（数据在卷里不丢，colima start 后回来）。本地数据库/Redis 都会连不上。")
+        return (_t("colima stop（正常停掉 Docker 虚拟机）"), ["colima-stop"],
+                _t("里面 {n} 个容器会全部停掉（数据在卷里不丢，colima start 后回来）。本地数据库/Redis 都会连不上。").format(n=len(n)))
     if g == "claude 会话":
-        return ("给 claude 发 SIGTERM（让它自己退出）", ["signal", 15],
-                "这个对话会结束；窗格里能用 claude --resume 接回。如果它正在工作，这一轮会丢。")
+        return (_t("给 claude 发 SIGTERM（让它自己退出）"), ["signal", 15],
+                _t("这个对话会结束；窗格里能用 claude --resume 接回。如果它正在工作，这一轮会丢。"))
     if g == "Chrome":
-        return ("给这个 Chrome 进程发 SIGTERM", ["signal", 15],
-                "只是 Chrome 的一个进程（标签页/插件/GPU），关了对应的标签页会显示「Aw, Snap」，刷新即可。关主进程会关掉整个 Chrome。")
-    return ("给这个进程发 SIGTERM（礼貌地请它退出）", ["signal", 15], "没存的东西会丢。它不退再按 X 强制结束（SIGKILL）。")
+        return (_t("给这个 Chrome 进程发 SIGTERM"), ["signal", 15],
+                _t("只是 Chrome 的一个进程（标签页/插件/GPU），关了对应的标签页会显示「Aw, Snap」，刷新即可。关主进程会关掉整个 Chrome。"))
+    return (_t("给这个进程发 SIGTERM（礼貌地请它退出）"), ["signal", 15], _t("没存的东西会丢。它不退再按 X 强制结束（SIGKILL）。"))
 
 
 def kill_app(name):
     """强杀一个 .app 的全部进程（主进程 + 子进程）。主进程不理会退出和 SIGTERM 时用。"""
     run("pkill", "-KILL", "-f", f"/{name}.app/")
-    return f"退出命令没用，已强制结束 {name} 的全部进程"
+    return _t("退出命令没用，已强制结束 {name} 的全部进程").format(name=name)
 
 
 def do_kill(p, plan):
     act = plan[1]
     try:
         if act[0] == "adb":
-            return run(ADB, "-s", act[1], "emu", "kill", timeout=15).strip() or "已发出关机"
+            return run(ADB, "-s", act[1], "emu", "kill", timeout=15).strip() or _t("已发出关机")
         if act[0] == "quit-app":
             run("osascript", "-e", f'tell application "{act[1]}" to quit', timeout=15)
             for _ in range(6):   # nwjs 应用（TCSAS）经常不理会退出命令：等 3 秒还在，就强杀整个应用
                 time.sleep(0.5)
                 if not run("pgrep", "-f", f"/{act[1]}.app/").strip():
-                    return "已退出"
+                    return _t("已退出")
             return kill_app(act[1])
         if act[0] == "colima-stop":
-            return (run("colima", "stop", timeout=120) or "已停止").strip()[-200:]
+            return (run("colima", "stop", timeout=120) or _t("已停止")).strip()[-200:]
         os.kill(p["pid"], act[1])
-        return f"已发送信号 {act[1]}"
+        return _t("已发送信号 {sig}").format(sig=act[1])
     except ProcessLookupError:
-        return "进程已经没了"
+        return _t("进程已经没了")
     except PermissionError:
-        return "没权限（不是你的进程）"
+        return _t("没权限（不是你的进程）")
 
 
 def alive(pid):
@@ -457,7 +464,7 @@ def detail(pid, procs, panes, width):
     """一个进程的详情页：返回 (行列表, 提醒/不可关原因)。"""
     p = procs.get(pid)
     if not p:
-        return [f"{Y}这个进程已经退出了。{O}", "", f"{D}按 Esc 返回{O}"], "gone"
+        return [f"{Y}{_t('这个进程已经退出了。')}{O}", "", f"{D}{_t('按 Esc 返回')}{O}"], "gone"
     g = group_of(p["args"])
     def _extra():
         o = run("lsof", "-p", str(pid), "-a", "-d", "cwd", "-Fn", timeout=5)
@@ -474,29 +481,35 @@ def detail(pid, procs, panes, width):
         chain.append(f"{cur} {label(q, procs, panes)[:40]}")
         cur = q["ppid"]
     W = max(40, width - 4)
-    L = [f"{B}进程详情{O}  {D}pid {pid}{O}", ""]
+    def key(word):   # 详情页左边那列：中文两个或四个汉字后面补到 11 格；英文按同样的宽度补
+        return f"  {pad(_t(word), 11)}" if EN else f"  {word}" + " " * (11 - 2 * len(word))
+    L = [f"{B}{_t('进程详情')}{O}  {D}pid {pid}{O}", ""]
     L.append(f"  {B}{label(p, procs, panes)[:W]}{O}")
-    L.append(f"  所属软件   {g}")
-    L.append(f"  已开       {p['et']}")
-    L.append(f"  内存       {gb(p['rss'])}        CPU  {p['cpu']:.0f}%（近一分钟平均）")
+    L.append(f"{key('所属软件')}{_t(g)}")
+    L.append(f"{key('已开')}{p['et']}")
+    L.append("  " + _t("内存       {rss}        CPU  {cpu}%（近一分钟平均）").format(rss=gb(p['rss']), cpu=format(p['cpu'], '.0f')))
     if cwd:
-        L.append(f"  当前目录   {short(cwd)}")
+        L.append(f"{key('当前目录')}{short(cwd)}")
     if ports:
-        L.append(f"  监听端口   {', '.join(ports)}")
-    L.append(f"  子进程     {len(kids)} 个" + (f"  {D}（{', '.join(label(k, procs, panes)[:18] for k in kids[:3])}…）{O}" if kids else ""))
+        L.append(f"{key('监听端口')}{', '.join(ports)}")
+    L.append("  " + _t("子进程     {n} 个").format(n=len(kids)) + (f"  {D}{_t('（{names}…）').format(names=', '.join(label(k, procs, panes)[:18] for k in kids[:3]))}{O}" if kids else ""))
     if chain:
-        L.append(f"  上级       " + f"{D} ← {O}".join(chain[:3]))
-    L.append(f"  命令行     {D}{p['args'][:W * 3]}{O}")
+        L.append(key("上级") + f"{D} ← {O}".join(chain[:3]))
+    L.append(f"{key('命令行')}{D}{p['args'][:W * 3]}{O}")
     L.append("")
     why = protected(p, procs)
     plan = kill_plan(p, procs)
     if why:
-        L.append(f"  {R}不能在这里关：{why}{O}")
+        L.append(f"  {R}{_t('不能在这里关：{why}').format(why=why)}{O}")
     else:
-        L.append(f"  {B}关闭方式{O}  {plan[0]}")
-        L.append(f"  {Y}注意{O}      {plan[2]}")
+        if EN:
+            L.append(f"  {B}{_t('关闭方式')}{O}  {plan[0]}")
+            L.append(f"  {Y}{pad(_t('注意'), 12)}{O}{plan[2]}")
+        else:
+            L.append(f"  {B}关闭方式{O}  {plan[0]}")
+            L.append(f"  {Y}注意{O}      {plan[2]}")
         if pid in caller_pids(procs):
-            L.append(f"  {R}{B}⚠ 这是你当前所在窗格里的进程（你正在用的会话）。关了你正在打字的窗口就没了。{O}")
+            L.append(f"  {R}{B}{_t('⚠ 这是你当前所在窗格里的进程（你正在用的会话）。关了你正在打字的窗口就没了。')}{O}")
     return L, why
 
 
@@ -526,7 +539,7 @@ def main():
             if st["mode"] == "list":
                 lines, rowmap, procs, panes, st["shown"], gmap, gorder = render(size.columns, size.lines, only, st["sel"], st["frozen"], st["gfilter"])
                 order = [rowmap[k] for k in sorted(rowmap)]
-                foot = st["msg"] or (f"{D}↑↓ 选进程 · Enter/点击 看详情 · ←→/Tab 或点软件行 筛选 · a 看全部 · " + ("r 重新排序 · Esc 取消选中" if st["frozen"] else "q 退出") + O)
+                foot = st["msg"] or (f"{D}" + _t("↑↓ 选进程 · Enter/点击 看详情 · ←→/Tab 或点软件行 筛选 · a 看全部") + " · " + (_t("r 重新排序 · Esc 取消选中") if st["frozen"] else _t("q 退出")) + O)
                 lines = lines + [foot]
             else:
                 procs, panes = processes(), pane_names()
@@ -535,14 +548,14 @@ def main():
                 p = procs.get(st["sel"])
                 if st["mode"] == "confirm" and p:
                     plan = kill_plan(p, procs)
-                    word = "强制结束（SIGKILL，不给它收拾的机会）" if st["force"] else plan[0]
-                    lines += [f"  {R}{B}确定要 {word} 吗？{O}",
-                              f"  对象：{B}pid {p['pid']}{O}  {label(p, procs, panes)[:60]}",
-                              f"  {B}按 y 确认{O}，其他键取消"]
+                    word = _t("强制结束（SIGKILL，不给它收拾的机会）") if st["force"] else plan[0]
+                    lines += [f"  {R}{B}{_t('确定要 {what} 吗？').format(what=word)}{O}",
+                              f"  {_t('对象：')}{' ' if EN else ''}{B}pid {p['pid']}{O}  {label(p, procs, panes)[:60]}",
+                              f"  {B}{_t('按 y 确认')}{O}{_t('，其他键取消')}"]
                 elif p and not why:
-                    lines += [f"  {B}x{O} 关闭   {D}X 强制结束   Esc 返回   ↑↓ 换一个{O}"]
+                    lines += [f"  {B}x{O} {_t('关闭')}   {D}{_t('X 强制结束   Esc 返回   ↑↓ 换一个')}{O}"]
                 else:
-                    lines += [f"  {D}Esc 返回{O}"]
+                    lines += [f"  {D}{_t('Esc 返回')}{O}"]
                 if st["msg"]:
                     lines += ["", "  " + st["msg"]]
             sys.stdout.write("\033[H" + "\n".join(l + "\033[K" for l in lines) + "\033[J")
@@ -613,20 +626,21 @@ def main():
                             try:
                                 pl = kill_plan(p, procs)
                                 if pl[1][0] == "quit-app": res = kill_app(pl[1][1])   # 整个应用一起杀，只杀一个进程没用
-                                else: os.kill(p["pid"], 9); res = "已发送 SIGKILL"
-                            except ProcessLookupError: res = "进程已经没了"
-                            except PermissionError: res = "没权限"
+                                else: os.kill(p["pid"], 9); res = _t("已发送 SIGKILL")
+                            except ProcessLookupError: res = _t("进程已经没了")
+                            except PermissionError: res = _t("没权限")
                         else:
                             res = do_kill(p, kill_plan(p, procs))
                         for _ in range(10):
                             time.sleep(0.5)
                             if not alive(p["pid"]): break
-                        st["msg"] = f"{G}{res}，已退出。{O}" if not alive(p["pid"]) else f"{Y}{res}，但它还在（有的要几秒）。再看一次，或按 X 强制结束。{O}"
+                        st["msg"] = (f"{G}{_t('{res}，已退出。').format(res=res)}{O}" if not alive(p["pid"])
+                                     else f"{Y}{_t('{res}，但它还在（有的要几秒）。再看一次，或按 X 强制结束。').format(res=res)}{O}")
                         st["mode"] = "detail"
                     elif k == "y":
-                        st["mode"], st["msg"] = "detail", f"{Y}这个进程已经变了（退出了或进程号被别的程序用了），没动。{O}"
+                        st["mode"], st["msg"] = "detail", f"{Y}{_t('这个进程已经变了（退出了或进程号被别的程序用了），没动。')}{O}"
                     else:
-                        st["mode"], st["msg"] = "detail", f"{D}已取消，没动。{O}"
+                        st["mode"], st["msg"] = "detail", f"{D}{_t('已取消，没动。')}{O}"
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
         sys.stdout.write("\033[?1000l\033[?1006l\033[?25h\033[2J\033[H")

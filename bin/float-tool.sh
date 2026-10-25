@@ -21,6 +21,7 @@ set -uo pipefail
 # sidebar/ 才找得到。
 self="$0"; [ -L "$self" ] && self="$(readlink "$self")"
 BIN="$(cd "$(dirname "$self")" && pwd)"
+. "$BIN/../lib/i18n.sh"
 
 # 按钮得由脚本输出：oh-my-tmux 按 `|` 切状态栏的段，而 #[range=user|…] 里正好有 `|`，
 # 写死在 tmux.conf.local 里会被它拆坏；#() 的输出它不碰。
@@ -94,7 +95,8 @@ if [ "${1:-}" = --pick-repo ]; then
     while IFS= read -r g; do printf '%s\t%s\n' "$(stat -f %m "$g" 2>/dev/null || echo 0)" "${g%/.git}"; done |
     sort -rn | cut -f2)
   if [ ${#repos[@]} -eq 0 ]; then
-    printf '\n  %s 不是 git 仓库，下面 3 层也没有仓库。\n\n  按任意键或点浮窗外面关闭。\n' "$shown"
+    t '%s 不是 git 仓库，下面 3 层也没有仓库。'; msg="$T"; t '按任意键或点浮窗外面关闭。'
+    printf "\n  $msg\n\n  %s\n" "$shown" "$T"
     # -sn1：Esc 也算数。`read -r` 等的是一整行，按 Esc 什么也不会发生。
     read -rsn1 _
     exit 0
@@ -102,9 +104,10 @@ if [ "${1:-}" = --pick-repo ]; then
   if [ ${#repos[@]} -eq 1 ]; then
     exec lazygit -p "${repos[0]}"
   fi
+  t '仓库'; prompt="$T > "; t '%s 不是 git 仓库，点一个打开：'; header=$(printf "$T" "$shown")
   pick=$(printf '%s\n' "${repos[@]#"$dir"/}" |
-    fzf --reverse --no-sort --info=hidden --prompt='仓库 > ' \
-        --header="$shown 不是 git 仓库，点一个打开：" --bind 'left-click:accept') || exit 0
+    fzf --reverse --no-sort --info=hidden --prompt="$prompt" \
+        --header="$header" --bind 'left-click:accept') || exit 0
   exec lazygit -p "$dir/$pick"
 fi
 

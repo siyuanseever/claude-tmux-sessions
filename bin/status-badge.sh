@@ -86,12 +86,9 @@ live = set(win_of)
 
 
 def fmt_dur(secs):
-    secs = max(0, int(secs))
-    if secs < 60:
-        return f"{secs}秒"
-    if secs < 3600:
-        return f"{secs // 60}分钟"
-    return f"{secs / 3600:.1f}".rstrip("0").rstrip(".") + "小时"
+    sys.path.insert(0, os.path.join(os.environ.get("BIN_DIR") or ".", "..", "lib"))
+    from i18n import dur      # 用到才 import：这个脚本每 10 秒跑一次
+    return dur(secs)
 
 
 def clip(s, width=22):

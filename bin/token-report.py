@@ -51,6 +51,8 @@ from bisect import bisect_right
 from collections import defaultdict
 
 BIN_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+from i18n import t as _t  # noqa: E402  界面文字：zh 原样，en 查 lib/en.tsv
 PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
 STATUS_FILE = os.path.expanduser("~/.claude/tmux-claude-status.json")
 HOME = os.path.expanduser("~")
@@ -396,30 +398,31 @@ def render_overview(data, width):
     grand = incoming + get("output")
 
     days = data["days"]
-    label = "今日" if days <= 1 else f"近 {days} 天"
+    label = _t("今日") if days <= 1 else _t("近 {n} 天").format(n=days)
     span = time.strftime("%m-%d", time.localtime(data["start"]))
     today = time.strftime("%m-%d")
     span = today if days <= 1 else f"{span} → {today}"
 
     out = []
-    head = (f"{BOLD}{label} token 消耗{RESET}   {DIM}{span} · "
-            f"{len(data['sessions'])} 个会话{RESET}")
+    head = (f"{BOLD}{_t('{label} token 消耗').format(label=label)}{RESET}   {DIM}{span} · "
+            f"{_t('{n} 个会话').format(n=len(data['sessions']))}{RESET}")
     ranked = data["sessions"]
     # The concentration figure is the first thing to go when the list side
     # is narrow: fzf truncates a header line rather than wrapping it, and
     # losing the tail of the date range to keep this would be a worse trade.
     if get("read") and width >= 62:
         top5 = sum(s["read"] for s in ranked[:5])
-        head += f"{DIM} · 前 5 名占读入 {top5 / get('read') * 100:.0f}%{RESET}"
+        pct = f"{top5 / get('read') * 100:.0f}"
+        head += f"{DIM} · {_t('前 5 名占读入 {pct}%').format(pct=pct)}{RESET}"
     out.append(head)
 
     if not turns:
         out.append("")
-        out.append(f"{DIM}这个窗口里没有记录到任何一轮对话。{RESET}")
+        out.append(f"{DIM}{_t('这个窗口里没有记录到任何一轮对话。')}{RESET}")
         return "\n".join(out)
 
-    out.append(f"  {pad('轮数', 10)}{pad(f'{turns:,}', 9, right=True)}"
-               f"   {DIM}平均每轮上下文 {fmt_tok(incoming // turns)}{RESET}")
+    out.append(f"  {pad(_t('轮数'), 10)}{pad(f'{turns:,}', 9, right=True)}"
+               f"   {DIM}{_t('平均每轮上下文 {n}').format(n=fmt_tok(incoming // turns))}{RESET}")
     # Bar sized to what's left after the two number columns and the
     # percentage — a fixed 22 cells overflowed the list side of a
     # 100-column terminal and fzf clipped the bars mid-fill.
@@ -427,7 +430,7 @@ def render_overview(data, width):
     for name, n in (("缓存读取", get("read")), ("缓存写入", get("create")),
                     ("输出", get("output")), ("新输入", get("input"))):
         share = n / grand if grand else 0
-        out.append(f"  {pad(name, 10)}{pad(fmt_tok(n), 9, right=True)}   "
+        out.append(f"  {pad(_t(name), 10)}{pad(fmt_tok(n), 9, right=True)}   "
                    f"{bar(share, cells)} {DIM}{share * 100:4.1f}%{RESET}")
     return "\n".join(out)
 
@@ -453,9 +456,9 @@ def rank_header(width):
     stays pinned above the rows. Its left offset has to match the rows'
     exactly — three columns for the rank, one for the status glyph."""
     name_w, proj_w = row_widths(width)
-    return (f"{DIM} {pad('#', 3, right=True)}   {pad('会话', name_w)} "
-            f"{pad('项目', proj_w)} {pad('轮数', 5, right=True)} "
-            f"{pad('读入', 6, right=True)} {pad('均/轮', 6, right=True)}{RESET}")
+    return (f"{DIM} {pad('#', 3, right=True)}   {pad(_t('会话'), name_w)} "
+            f"{pad(_t('项目'), proj_w)} {pad(_t('轮数'), 5, right=True)} "
+            f"{pad(_t('读入'), 6, right=True)} {pad(_t('均/轮'), 6, right=True)}{RESET}")
 
 
 def render_rows(data, width, tag=""):
@@ -536,13 +539,13 @@ def render_detail(data, sid, width, lines):
         label, rank = m.label_of(e)
         age = m.fmt_age(rank, int(time.time() - e.get("updated_at", time.time())))
     else:
-        label, age = f"{DIM}——{RESET}", "已经不在 tmux 里了"
+        label, age = f"{DIM}——{RESET}", _t("已经不在 tmux 里了")
 
     # A name that came from the opening prompt is not a name, and the card
     # has the room to say so — the ❯ line right below carries the prompt in
     # full, so repeating it here as a title would only be the same sentence
     # twice, once truncated.
-    title = "未命名会话" if s.get("from_prompt") else clip(s["name"], w - 22)
+    title = _t("未命名会话") if s.get("from_prompt") else clip(s["name"], w - 22)
     out.append(f"{BOLD}{title}{RESET}  {label} {DIM}{age}{RESET}")
     where = " · ".join(x for x in (s.get("where"), s.get("pane"), s["sid"][:8]) if x)
     out.append(f"{DIM}{clip(where, w)}{RESET}")
@@ -554,8 +557,9 @@ def render_detail(data, sid, width, lines):
 
     out.append(f"{DIM}{'─' * w}{RESET}")
     avg = s["ctx"] // s["turns"] if s["turns"] else 0
-    bits = [f"轮数 {s['turns']:,}", f"{YELLOW}均/轮 {fmt_tok(avg)}{RESET}",
-            f"峰值 {fmt_tok(s['peak'])}"]
+    bits = [_t("轮数 {n}").format(n=format(s['turns'], ',')),
+            f"{YELLOW}{_t('均/轮 {n}').format(n=fmt_tok(avg))}{RESET}",
+            _t("峰值 {n}").format(n=fmt_tok(s['peak']))]
     if model:
         bits.append(model.replace("claude-", ""))
     if s.get("last"):
@@ -566,19 +570,19 @@ def render_detail(data, sid, width, lines):
     for name, n in (("缓存读取", s["read"]), ("缓存写入", s["create"]),
                     ("输出", s["output"]), ("新输入", s["input"])):
         share = n / grand if grand else 0
-        out.append(f"{pad(name, 10)}{pad(fmt_tok(n), 8, right=True)}  "
+        out.append(f"{pad(_t(name), 10)}{pad(fmt_tok(n), 8, right=True)}  "
                    f"{bar(share, min(BAR_W, w - 26))} {DIM}{share * 100:4.1f}%{RESET}")
 
     by_day = s.get("by_day") or []
     if len(by_day) > 1:
         labels = data.get("day_labels") or []
-        out.append(f"{pad('分天', 10)}{CYAN}{spark(by_day)}{RESET}  "
+        out.append(f"{pad(_t('分天'), 10)}{CYAN}{spark(by_day)}{RESET}  "
                    f"{DIM}{labels[0] if labels else ''} → "
-                   f"{labels[-1] if labels else ''} · 按每轮上下文{RESET}")
+                   f"{labels[-1] if labels else ''} · {_t('按每轮上下文')}{RESET}")
 
     total_read = data["totals"].get("read", 0)
     if total_read:
-        out.append(f"{DIM}占窗口读入量 {s['read'] / total_read * 100:.1f}%{RESET}")
+        out.append(f"{DIM}{_t('占窗口读入量 {pct}%').format(pct=format(s['read'] / total_read * 100, '.1f'))}{RESET}")
 
     # Whatever depth is left goes to the live screen — or, for a session
     # that has already closed, to the tail of its last reply, which is the
@@ -597,12 +601,12 @@ def render_detail(data, sid, width, lines):
                 # off the top. The tail is the part worth keeping.
                 out.extend(cap.rstrip("\n").split("\n")[-room:])
             except Exception:                                  # noqa: BLE001
-                out.append(f"{DIM}(pane 已关闭或无法读取){RESET}")
+                out.append(f"{DIM}{_t('(pane 已关闭或无法读取)')}{RESET}")
         elif recap:
             for ln in m.wrap(recap, w - 2, room):
                 out.append(f"{DIM}▎{RESET} {ln}")
         else:
-            out.append(f"{DIM}(没有留下回复内容){RESET}")
+            out.append(f"{DIM}{_t('(没有留下回复内容)')}{RESET}")
     return "\n".join(out)
 
 
@@ -612,7 +616,7 @@ def render_static(data, top_n, width):
     if not data["turns"]:
         return "\n".join(out)
     ranked = data["sessions"]
-    out.append(f"{BOLD}会话排行{RESET} {DIM}· 按读入量{RESET}")
+    out.append(f"{BOLD}{_t('会话排行')}{RESET} {DIM}{_t('· 按读入量')}{RESET}")
     out.append(rank_header(width))
     out.extend(render_rows({**data, "sessions": ranked[:top_n]}, width)
                .split("\n"))
@@ -620,8 +624,8 @@ def render_static(data, top_n, width):
     tail = len(ranked) - min(top_n, len(ranked))
     out.append("")
     if tail > 0:
-        out.append(f"{DIM}  还有 {tail} 个会话未显示{RESET}")
-    out.append(f"{DIM}  ~98% 的 token 是重读已有上下文,所以「均/轮」比轮数更能解释谁贵。{RESET}")
+        out.append(f"{DIM}  {_t('还有 {n} 个会话未显示').format(n=tail)}{RESET}")
+    out.append(f"{DIM}  {_t('~98% 的 token 是重读已有上下文,所以「均/轮」比轮数更能解释谁贵。')}{RESET}")
     return "\n".join(out)
 
 

@@ -30,11 +30,12 @@ item_id="${4:-}"
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 [ -L "$SCRIPT_PATH" ] && SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
 BIN_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+. "$BIN_DIR/../lib/i18n.sh"
 
 if [ "$kind" = "extra" ]; then
   if [ -n "${CLAUDE_TMUX_EXTRA_CMD:-}" ] && [ -x "${CLAUDE_TMUX_EXTRA_CMD}" ]; then
     "$CLAUDE_TMUX_EXTRA_CMD" preview "$item_id" 2>&1 \
-      || echo "(provider 没能给出预览)"
+      || { t "(provider 没能给出预览)"; echo "$T"; }
   fi
   exit 0
 fi
@@ -61,7 +62,7 @@ if [ -n "$pane" ]; then
   # The bottom is also where Claude Code keeps its input box, statusline and
   # mode hint — in a short preview (a float sized to its rows) that furniture
   # was all you saw. strip-chrome.py cuts it so the last lines are Claude's.
-  { tmux capture-pane -p -e -S -200 -t "$pane" 2>/dev/null || echo "(pane 已关闭或无法读取)"; } \
+  { tmux capture-pane -p -e -S -200 -t "$pane" 2>/dev/null || { t "(pane 已关闭或无法读取)"; echo "$T"; }; } \
     | python3 "$BIN_DIR/strip-chrome.py"
   python3 "$BIN_DIR/session-digest.py" --pane "$pane" 2>/dev/null || true
   exit 0
@@ -82,8 +83,8 @@ else
       -F "#{session_name}	#{window_active}#{pane_active}	#{pane_id}" 2>/dev/null \
     | awk -F'\t' -v s="$session" '$1==s && $2=="11" { print $3; exit }')
   if [ -n "$active" ]; then
-    tmux capture-pane -p -e -S -200 -t "$active" 2>&1 || echo "(session 已关闭或无法读取)"
+    tmux capture-pane -p -e -S -200 -t "$active" 2>&1 || { t "(session 已关闭或无法读取)"; echo "$T"; }
   else
-    echo "(session 已关闭或无法读取)"
+    t "(session 已关闭或无法读取)"; echo "$T"
   fi
 fi

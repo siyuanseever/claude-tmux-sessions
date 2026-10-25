@@ -23,10 +23,14 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+from i18n import t as _t, join as _join  # noqa: E402  界面文字：zh 原样，en 查 lib/en.tsv
 
 HOME = pathlib.Path.home()
 DEFAULT_DIR = HOME / ".claude"
@@ -208,10 +212,10 @@ def disband(pane: str, mates: list[tuple[str, str]], log) -> dict | None:
     （2026-10-23 用户：「我不想做两步……就想一步按个按钮都能切过去」）。
     队友本身没法单独换账号（它们是领队起的进程，领队一退出就跟着结束），所以做法是先让领队把
     结果收回来、把队友关掉，领队换了账号以后要再开队友，开出来的自然就是新账号的。"""
-    names = "、".join(n for _, n in mates)
-    msg = (f"【切账号】要把这个会话换到另一个账号，得先收队：请让 {names} 把手上的结果交回来，"
-           f"然后把它们全部关掉。全部关掉后就停下，别的什么都不用做。")
-    log(f"让领队收队（{len(mates)} 个队友）")
+    names = _join(n for _, n in mates)
+    msg = _t("【切账号】要把这个会话换到另一个账号，得先收队：请让 {names} 把手上的结果交回来，"
+             "然后把它们全部关掉。全部关掉后就停下，别的什么都不用做。").format(names=names)
+    log(_t("让领队收队（{n} 个队友）").format(n=len(mates)))
     tm("send-keys", "-t", pane, "-l", msg); time.sleep(0.4); tm("send-keys", "-t", pane, "Enter")
     end = time.time() + TEAM_WAIT
     while time.time() < end:
@@ -219,17 +223,17 @@ def disband(pane: str, mates: list[tuple[str, str]], log) -> dict | None:
         left = team_mates(pane)
         if not left:
             break
-        log(f"等队友退出（还剩 {len(left)} 个）")
+        log(_t("等队友退出（还剩 {n} 个）").format(n=len(left)))
     else:
-        return {"state": "fail", "msg": f"已让领队收队，{TEAM_WAIT // 60} 分钟内队友没退完（还剩 "
-                                        f"{'、'.join(n for _, n in team_mates(pane))}），没再动"}
-    log("队友都退了，等领队停下来")
+        return {"state": "fail", "msg": _t("已让领队收队，{m} 分钟内队友没退完（还剩 {names}），没再动").format(
+            m=TEAM_WAIT // 60, names=_join(n for _, n in team_mates(pane)))}
+    log(_t("队友都退了，等领队停下来"))
     end = time.time() + IDLE_WAIT
     while time.time() < end:
         time.sleep(2)
         if screen_state(tail_lines(pane)) == "idle":
             return None
-    return {"state": "fail", "msg": "队友都退了，但领队一直没停下来，没再动"}
+    return {"state": "fail", "msg": _t("队友都退了，但领队一直没停下来，没再动")}
 
 
 def switch_one(pane: str, to: str, dry: bool = False, log=lambda m: None, stop_bg: bool = False,
@@ -239,37 +243,38 @@ def switch_one(pane: str, to: str, dry: bool = False, log=lambda m: None, stop_b
     cmd, cfg_dir = ACCTS[to]
     cur_cfg = tm("show-options", "-pv", "-t", pane, "@claude_config").strip()
     if acct_of(cur_cfg) == to:
-        return {"state": "skip", "msg": f"已经是 {to}"}
+        return {"state": "skip", "msg": _t("已经是 {to}").format(to=to)}
     if os.environ.get("TMUX_PANE") == pane:
-        return {"state": "skip", "msg": "这是当前正在用的窗格"}
+        return {"state": "skip", "msg": _t("这是当前正在用的窗格")}
     lines = tail_lines(pane)
     st = screen_state(lines)
     if st != "idle":
-        return {"state": "skip", "msg": "正在工作或等你确认，没动"}
+        return {"state": "skip", "msg": _t("正在工作或等你确认，没动")}
     if not stop_bg and re.search(r"\d+ shells? still running|\d+ background|scheduled task|Background work|\d+ shells?\b", "\n".join(lines[-4:])):
-        return {"state": "skip", "msg": "它挂着后台任务/定时任务，切换会把它们停掉，没动"}
+        return {"state": "skip", "msg": _t("它挂着后台任务/定时任务，切换会把它们停掉，没动")}
     proc = claude_proc(pane)
     if not proc:
-        return {"state": "skip", "msg": "窗格里没找到交互式 claude 进程"}
+        return {"state": "skip", "msg": _t("窗格里没找到交互式 claude 进程")}
     pid, args, direct = proc
     if "--agent-id" in args:
-        return {"state": "skip", "msg": "队友：随领队收队，不单独切"}
+        return {"state": "skip", "msg": _t("队友：随领队收队，不单独切")}
     src_dir = ACCTS[acct_of(cur_cfg)][1] if acct_of(cur_cfg) in ACCTS else DEFAULT_DIR
     info = session_file(pid, src_dir)
     if not info or info.get("kind") != "interactive" or not info.get("sessionId"):
-        return {"state": "skip", "msg": "不是交互式会话（队友/后台），没动"}
+        return {"state": "skip", "msg": _t("不是交互式会话（队友/后台），没动")}
     # 输入框先查：收队要往里打字，里面有你没发出去的字就不能动
     d = draft_text(lines, [l for l in _tmux("capture-pane", "-p", "-e", "-t", pane, "-S", f"-{TAIL}").splitlines() if l.strip()])
     if d is None:
-        return {"state": "skip", "msg": "认不出输入框，为防丢字没动"}
+        return {"state": "skip", "msg": _t("认不出输入框，为防丢字没动")}
     if d:
-        return {"state": "skip", "msg": f"输入框里有没发出去的字（{d[:20]}…），没动"}
+        return {"state": "skip", "msg": _t("输入框里有没发出去的字（{d}…），没动").format(d=d[:20])}
     mates = team_mates(pane)
     if mates:   # 重启领队会把它带的队友弄断：先让它收队，收完再切
         if _disbanded:
-            return {"state": "fail", "msg": "收过一次队了，窗口里还有队友，没再动"}
+            return {"state": "fail", "msg": _t("收过一次队了，窗口里还有队友，没再动")}
         if dry:
-            return {"state": "ok", "msg": f"（演练）会先让领队收队（{'、'.join(n for _, n in mates)}），收完再退出重启"}
+            return {"state": "ok", "msg": _t("（演练）会先让领队收队（{names}），收完再退出重启").format(
+                names=_join(n for _, n in mates))}
         bad = disband(pane, mates, log)
         if bad:
             return bad
@@ -284,12 +289,12 @@ def switch_one(pane: str, to: str, dry: bool = False, log=lambda m: None, stop_b
     line = "env " + " ".join(f"-u {k}" for k in unset) + (" " + " ".join(sets) if sets else "") + f" claude {rl}"
     if direct:   # 没有 shell：respawn-pane 原地换进程（/exit 会把窗格带走）
         if dry:
-            return {"state": "ok", "msg": f"（演练）会原地重启：{line}"}
+            return {"state": "ok", "msg": _t("（演练）会原地重启：{line}").format(line=line)}
         tm("respawn-pane", "-k", "-t", pane, line)
         return _wait_up(pane, pid, sid, cfg_dir, to, line)
     if dry:
-        return {"state": "ok", "msg": f"（演练）会退出再执行：{line}"}
-    log(f"{pane} 退出")
+        return {"state": "ok", "msg": _t("（演练）会退出再执行：{line}").format(line=line)}
+    log(_t("{pane} 退出").format(pane=pane))
     tm("send-keys", "-t", pane, "-l", "/exit"); time.sleep(0.4); tm("send-keys", "-t", pane, "Enter")
     for _ in range(40):
         time.sleep(0.5)
@@ -300,9 +305,9 @@ def switch_one(pane: str, to: str, dry: bool = False, log=lambda m: None, stop_b
                 tm("send-keys", "-t", pane, "Enter")
                 continue
             tm("send-keys", "-t", pane, "Escape")   # 「退出并停掉后台任务」的确认：取消，选 Stay
-            return {"state": "skip", "msg": "它有后台任务，退出会停掉它们，已取消退出，没动"}
+            return {"state": "skip", "msg": _t("它有后台任务，退出会停掉它们，已取消退出，没动")}
     else:
-        return {"state": "fail", "msg": "它没有退出（可能刚好开始工作），没再动"}
+        return {"state": "fail", "msg": _t("它没有退出（可能刚好开始工作），没再动")}
     time.sleep(0.3)
     tm("send-keys", "-t", pane, "-l", line); tm("send-keys", "-t", pane, "Enter")
     return _wait_up(pane, pid, sid, cfg_dir, to, line)
@@ -319,8 +324,8 @@ def _wait_up(pane, old_pid, sid, cfg_dir, to, what) -> dict:
                 # 窗格上的账号标记（ctx_to_tmux.py 写的 CLAUDE_CONFIG_DIR 原值，默认账号是空串）本来要等
                 # 下一次发消息才更新；这期间侧栏的账号按钮、再点一次切换都会按旧账号算，所以这里先写上。
                 tm("set-option", "-p", "-t", pane, "@claude_config", "" if cfg_dir == DEFAULT_DIR else str(cfg_dir))
-                return {"state": "ok", "msg": f"已切到 {to}，接着原会话"}
-    return {"state": "fail", "msg": f"已执行 {what}，但 30 秒内没看到它在 {to} 下起来，请看一眼窗格"}
+                return {"state": "ok", "msg": _t("已切到 {to}，接着原会话").format(to=to)}
+    return {"state": "fail", "msg": _t("已执行 {what}，但 30 秒内没看到它在 {to} 下起来，请看一眼窗格").format(what=what, to=to)}
 
 
 JOBS: dict = {}
@@ -329,9 +334,9 @@ JOBS: dict = {}
 def start_job(panes: list[str], to: str, dry: bool = False, stop_bg: bool = False) -> str:
     """后台跑：一个窗格一个线程（互不相干），页面用 job id 轮询进度。"""
     jid = uuid.uuid4().hex[:8]
-    JOBS[jid] = {"to": to, "items": {p: {"state": "queued", "msg": "排队"} for p in panes}}
+    JOBS[jid] = {"to": to, "items": {p: {"state": "queued", "msg": _t("排队")} for p in panes}}
     def run(p):
-        JOBS[jid]["items"][p] = {"state": "running", "msg": "切换中…"}
+        JOBS[jid]["items"][p] = {"state": "running", "msg": _t("切换中…")}
         def log(m):   # 页面轮询时看得到进行到哪一步（收队可能要几分钟）
             JOBS[jid]["items"][p] = {"state": "running", "msg": m}
         try:
@@ -348,7 +353,7 @@ def start_job(panes: list[str], to: str, dry: bool = False, stop_bg: bool = Fals
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--to", required=True, choices=list(ACCTS))
-    ap.add_argument("--session", help="tmux session 名；不给就看 --pane")
+    ap.add_argument("--session", help=_t("tmux session 名；不给就看 --pane"))
     ap.add_argument("--pane", action="append", default=[])
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
@@ -356,7 +361,7 @@ def main() -> None:
     if a.session:
         panes += session_panes(a.session)
     if not panes:
-        raise SystemExit("没有要切的窗格")
+        raise SystemExit(_t("没有要切的窗格"))
     jid = start_job(panes, a.to, a.dry_run)
     while any(v["state"] in ("queued", "running") for v in JOBS[jid]["items"].values()):
         time.sleep(1)

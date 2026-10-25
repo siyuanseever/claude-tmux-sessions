@@ -78,14 +78,16 @@ switch() {  # $1 = days — the three actions a window switch takes
     "$(rows "$c")" "$(head_of "$c")" "$CLEAR_WARN"
 }
 
-KEYS='1 今日 · 7 近 7 天 · j/k 选会话 · Enter 跳过去 · p 预览 · r 重新统计 · q 返回'
+. "$BIN_DIR/../lib/i18n.sh"
+t '1 今日 · 7 近 7 天 · j/k 选会话 · Enter 跳过去 · p 预览 · r 重新统计 · q 返回'; KEYS="$T"
 FOOTER=$'\033[2m  '"$KEYS"$'\033[0m'
 # What Enter says when the session it is on has already closed. The keys come
 # back with it — a footer that only carried the warning would take the hints
 # away for the rest of the page's life. On disk because jump-handoff.sh feeds
 # it to fzf through `transform-footer(cat …)`; see that script.
 printf '%s\n' "$FOOTER" > "$CACHE_DIR/footer"
-printf '%s\n' $'  \033[33m⚠ 这个会话已经不在 tmux 里了,跳不过去\033[0m'"$FOOTER" \
+t '⚠ 这个会话已经不在 tmux 里了,跳不过去'
+printf '%s\n' $'  \033[33m'"$T"$'\033[0m'"$FOOTER" \
   > "$CACHE_DIR/footer.warn"
 export JUMP_WARN_FILE="$CACHE_DIR/footer.warn"
 CLEAR_WARN="+transform-footer(cat $(printf '%q' "$CACHE_DIR/footer"))"
@@ -99,13 +101,14 @@ CLEAR_WARN="+transform-footer(cat $(printf '%q' "$CACHE_DIR/footer"))"
 # Deliberately no --height: fzf then runs full-screen on the alternate
 # buffer, so leaving the page restores the picker's screen underneath
 # instead of making it redraw.
+t '这个会话花在哪'; label="$T"
 fzf --ansi --delimiter=$'\t' --with-nth=1 --disabled --no-input \
   --layout=reverse \
   --header="$("${PY[@]}" --overview --cache "$CACHE_DIR/$days.json" --width "$list_w")" \
   --footer="$FOOTER" \
   --preview "python3 $(printf '%q' "$REPORT") --detail {2} --cache {3} --width \${FZF_PREVIEW_COLUMNS:-80} --lines \${FZF_PREVIEW_LINES:-40}" \
   --preview-window="right,${PREVIEW_PCT}%,border-left,nowrap" \
-  --preview-label=' 这个会话花在哪 ' \
+  --preview-label=" $label " \
   --bind "j:down" --bind "k:up" \
   --bind "1:$(switch 1)" \
   --bind "t:$(switch 1)" \
