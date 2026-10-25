@@ -180,18 +180,31 @@
 - **topics**：`agent`、`coding-agent`、`claude-code`、`herdr`、`claude`、`ai-agent`、`tui`、`terminal`。
   `herdr-plugin` 这个 topic 就是进 herdr 插件市场的那个标签，算发布那一步，等你点头再加。
 
-还要你确认的：
+## 发布（2026-10-25 星期日 15:3x，你同意后做的）
 
-1. **建仓库** `siyuanseever/statetrail`（public），填上面的简介和 topics。搬法建议用 `git subtree split --prefix=herdr` 保留历史，
-   再在新仓库里把它放进 `herdr/` 子目录，顶层放 README 草稿。
-2. **推送和真装一次**：推上去后在干净环境里 `herdr plugin install siyuanseever/statetrail/herdr`，记录命令和用时。
-3. **打 `herdr-plugin` 标签**进插件市场。
-4. **合进 main**：本分支合进 `main` 后用 `git worktree remove` 收掉 worktree；`herdr/` 搬走后在这个仓库里留不留，也要你定。
-5. **你自己这台的额度**：现在走分层，你没开实时查询、也没接桥接，只剩已经过期的缓存，所以 5h / 7d 是「?」。
-   三个选择：
-   - 插件配置里写 `live_usage = true`：用你的 Claude 登录实时查，界面不变
-   - 接 statusLine 桥接：不碰凭据，但输入框下面多一行
-   - 保持现状
+- **仓库**：https://github.com/siyuanseever/statetrail ，public，默认分支 `main`
+  - 顶层：README（两个版本怎么装、链接 tmux 版）、LICENSE、.gitignore
+  - `herdr/` 用 `git subtree split --prefix=herdr` 切出来、`git subtree add --prefix=herdr` 放回，带着这个插件的 17 个提交
+  - 推送前查过：herdr/ 和这些提交说明里没有公司名、账号、本机路径；提交邮箱是 GitHub 的 noreply 地址
+- **topics**：agent、ai-agent、claude、claude-code、coding-agent、herdr、herdr-plugin、terminal、tui。
+  `herdr-plugin` 是 herdr 插件市场认的标签，按 herdr 文档，市场每 30 分钟刷新一次
+- **版本标签**：`v0.1.0`
+- **从 GitHub 真装一次**（第 3 条验收这才算做完）：
+  - 环境：全新的假 `$HOME`，隔离的 herdr
+  - 命令：`herdr plugin install --yes siyuanseever/statetrail/herdr`
+  - 用时 21.3 秒，装上的是 `67e638b`（v0.1.0），装在 `github-installations/statetrail-…/checkout/herdr`
+  - 跑假 Claude 后轨迹自动打开；英文 locale 显示英文界面；假 `$HOME` 没有 Nerd Font，`icons = "auto"` 选了 unicode；额度来自缓存
+  - 测完环境收干净了
+- 装的过程中发现、已修：`live_usage` 默认打开后，演示的假 `$HOME` 换不掉钥匙串，录 GIF 会拿你的真令牌查真实用量。
+  fixture 里显式 `live_usage = false`
+- **你这台的额度**：`live_usage` 默认打开（cee9e4e），重开轨迹后表头 5h 56%、7d 11%，不再是「?」
+- 发布在星期日。你的规矩是节假日不推送，这次是你明确说了「新建仓库推送打标签」才做的
+
+还没做的：
+
+1. **合进 main**：本分支合进 `claude-tmux-sessions` 的 `main` 后，用 `git worktree remove` 收掉这个 worktree。
+   `herdr/` 已经搬去 statetrail，在这个仓库里留不留要你定。以后 herdr 版在哪边改，也要定一个地方，免得两边分叉。
+2. **`claude-code/`**：主会话那边的 Claude Code 版做好后放进 statetrail 仓库。
 
 ## 评估：用 statusLine 桥接拿额度和上下文（不碰令牌）
 
