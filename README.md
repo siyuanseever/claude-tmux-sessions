@@ -146,7 +146,7 @@ means you can read the list without relying on it.
 ## Install
 
 ```bash
-git clone https://github.com/threedaycat/claude-tmux-sessions.git ~/projects/claude-tmux-sessions
+git clone https://github.com/siyuanseever/claude-tmux-sessions.git ~/projects/claude-tmux-sessions
 ~/projects/claude-tmux-sessions/install.sh
 ```
 
