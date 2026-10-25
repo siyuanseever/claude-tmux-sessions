@@ -30,6 +30,7 @@ from i18n import t as _t  # noqa: E402  claude_trail 已经把 lib/ 放进 sys.p
 
 RUN = Path.home() / ".local" / "state" / "claude-trail" / "run"   # <侧栏窗格>.rows / .port
 TICK = 1.0               # 整轮检查的间隔
+IDLE_EVERY = 5           # 没人看的侧栏每几轮才重拼一次（看得见的、刚点过的照旧每轮）
 POLL = 0.1               # 两轮之间每 0.1 秒看一眼有没有新的点击（只 stat 几个小文件）
 PROMPT_MAX = 4000        # 展开时最多显示你那句话的多少个字
 MIN_WIDTH = 120          # Claude 窗格至少这么宽才自动开侧栏
@@ -50,8 +51,10 @@ SHELL_H = "8"            # 侧栏上面那条命令行的行数，@trail_shell_h
 
 
 def tmux(*args):
+    # close_fds=False：这样 subprocess 走 posix_spawn，不 fork 整个进程 —— 每秒好几次，fork 一次要几毫秒 CPU
+    # （2026-10-25 实测，capture-pane 一次 7.7ms）。Python 自己开的文件描述符默认不继承，不会漏给 tmux。
     try:
-        r = subprocess.run([TMUX, *args], capture_output=True, text=True, timeout=3)
+        r = subprocess.run([TMUX, *args], capture_output=True, text=True, timeout=3, close_fds=False)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return r.stdout if r.returncode == 0 else None
@@ -217,6 +220,7 @@ class Daemon:
         self.cwds = {}         # 窗格 → 当前目录
         self.git = {}          # 目录 → (查的时间, 没提交的文件数；不是仓库 / 查不了是 None)
         self.usage, self.usage_mtime = {}, {}       # 配置目录 → 额度缓存 / 文件 mtime，没动就不重读
+        self.n_tick = 0
 
     def read_usage(self, cfgs):
         """额度是 usage-refresh.py 写的一个小 json，半小时才变一次：stat 一下，变了才读。
@@ -282,14 +286,20 @@ class Daemon:
         tr.update()
         return tr, p
 
-    def view(self, caller, tr):
-        """主界面现在停在哪：(屏幕上认出来的轮次下标, 是不是在最底)。。
+    def view(self, caller, tr, visible=True):
+        """主界面现在停在哪：(屏幕上认出来的轮次下标, 是不是在最底)。
 
         认法和跳转一样：每轮开头那几个字（针）去屏幕上找。认不出任何一轮时沿用上一次的位置
         （屏幕上一屏全是长代码块、表格时会这样），不然滑块会一闪一闪地跳。
+
+        窗口没人在看（不是当前窗口，或 session 没有 client）就沿用上一次的结果、不截屏：侧栏不在屏幕上，
+        标在哪一轮没人看得见，切过去以后最多一秒就更新。以前每个侧栏每秒截一次屏，十来个侧栏时
+        这一项占了常驻进程大半的 CPU（2026-10-25 实测：每轮 110ms 里 70ms 是 capture-pane）。
         """
         if tr is None:
             return (), False
+        if not visible and caller in self.views:
+            return self.views[caller]
         stops = tr.visible()
         key = (tr.size, len(stops))
         cached = self.needles.get(caller)
@@ -315,7 +325,7 @@ class Daemon:
             return hit[1]
         try:
             r = subprocess.run(["git", "-C", cwd, "status", "--porcelain"], capture_output=True,
-                               text=True, timeout=2)
+                               text=True, timeout=2, close_fds=False)
             n = len(r.stdout.splitlines()) if r.returncode == 0 else None
         except (OSError, subprocess.TimeoutExpired):
             n = None
@@ -328,7 +338,7 @@ class Daemon:
         except OSError:
             return None
 
-    def push(self, sidebar, caller, width=40):
+    def push(self, sidebar, caller, width=40, visible=True):
         tr, path = self.transcript(caller)
         busy = (self.status.get(caller) or {}).get("status") in ("running", "blocked")
         try:
@@ -343,7 +353,7 @@ class Daemon:
         model, ctx, bar, cfg = self.bars.get(caller, ("", "", "", ""))
         # 额度那两行里有「还剩多久重置」，每分钟会变；渲染好了放进 key，变了才重推。
         extra = ct.status_lines(width, model, ctx, self.usage.get(cfg), bar, cfg)
-        view = self.view(caller, tr)
+        view = self.view(caller, tr, visible)
         missing = frozenset(ct.missing_ids(caller))
         header = header_of(tr, path, extra, self.usage.get(cfg), view, self.git_dirty(self.cwds.get(caller)),
                            cfg, ct.switch_status(caller))
@@ -401,6 +411,7 @@ class Daemon:
             tmux("set", "-p", "-t", sh.strip(), "@trail_shell", caller)
 
     def tick(self):
+        self.n_tick += 1
         out = tmux("list-panes", "-a", "-F", FMT)
         if out is None:
             return                                 # tmux 没在跑或一时没回：什么都不动
@@ -468,7 +479,11 @@ class Daemon:
                 tmux("kill-pane", "-t", sb)
                 continue
             kept.add(caller)
-            self.push(sb, caller, self.widths.get(sb, 40))
+            # 没人看的侧栏（不是当前窗口、或 session 没有 client）每 IDLE_EVERY 轮才重拼一次表头和列表：
+            # 每轮给十来个看不见的侧栏重算额度行、git 计数，是截屏省掉以后剩下的大头（2026-10-25 实测）。
+            # 切过去以后最多一秒（下一轮它就是看得见的了）就更新；还没推过的（刚开的）照常推。
+            if c["seen"] or sb not in self.pushed or self.n_tick % IDLE_EVERY == 0:
+                self.push(sb, caller, self.widths.get(sb, 40), c["seen"])
         # 命令行跟着侧栏走：侧栏这一轮被关掉、或自己退出去了，上面这条也收掉，别留一个孤窗格
         for sh, caller in shells.items():
             if caller not in kept:
