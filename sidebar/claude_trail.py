@@ -575,7 +575,9 @@ def _oneline(s):
 
 def _first_line(s):
     for line in s.splitlines():
-        line = re.sub(r"[#*`>|_]", "", line).strip(" -")
+        line = re.sub(r"[#*`>|]", "", line)
+        # 下划线只剥 markdown 的强调（_重点_、__粗体__），不剥标识符里的：created_at、my_var 原样显示
+        line = re.sub(r"(?<![A-Za-z0-9])_+|_+(?![A-Za-z0-9])", "", line).strip(" -")
         if line:
             return line
     return ""
