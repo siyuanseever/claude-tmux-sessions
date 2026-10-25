@@ -166,3 +166,145 @@ j/k 选 · Enter 跳过去 · p 预览 · r 刷新 · q 返回	j/k select · Ent
 · 按读入量	· by tokens read
 还有 {n} 个会话未显示	{n} more sessions not shown
 ~98% 的 token 是重读已有上下文,所以「均/轮」比轮数更能解释谁贵。	~98% of tokens re-read existing context, so avg/turn explains cost better than turn count.
+
+# ---- 底栏点击、跳转、浮窗的 shell 部分（jump-top.sh / float-tool.sh） ---------------------
+没有追踪到任何 Claude Code pane	No Claude Code pane tracked
+没有需要处理的 pane	No pane needs you
+pane 已经不存在了 (%s)	Pane no longer exists (%s)
+%s 不是 git 仓库，下面 3 层也没有仓库。	%s is not a git repo, and there is none in the 3 levels below.
+按任意键或点浮窗外面关闭。	Press any key or click outside to close.
+仓库	repo
+%s 不是 git 仓库，点一个打开：	%s is not a git repo. Click one to open:
+
+# ---- 额度卡片（usage-refresh.py） ------------------------------------------------
+找不到 Claude Code 的登录凭据	Claude Code login credentials not found
+凭据格式认不出	Unrecognized credentials format
+令牌已过期，开一次 Claude Code 会自动续上	Token expired; opening Claude Code once renews it
+查询失败 HTTP {code}	Request failed: HTTP {code}
+查询失败（{err}）	Request failed ({err})
+已经	0m
+{d} 天 {h} 小时	{d}d {h}h
+{h} 小时 {m} 分	{h}h {m}m
+{m} 分钟	{m}m
+Claude 额度（{who}）	Claude quota ({who})
+Claude 额度	Claude quota
+{at} 的数据	data from {at}
+⟳ 刷新中…	⟳ refreshing…
+{at} 刷新	refreshed {at}
+{at} 的数据（{note}）	data from {at} ({note})
+之前	earlier
+没刷新成功：{err}	Refresh failed: {err}
+未知原因	unknown reason
+5 小时	5h
+7 天	7d
+没有数据	no data
+已用 {pct}%	{pct}% used
+{until}后重置（{at}）	resets in {until} ({at})
+刚刚刷新过	refreshed just now
+
+# ---- 资源监视（sys-monitor.py） --------------------------------------------------
+claude 会话	claude sessions
+Colima / Docker 虚拟机	Colima / Docker VM
+安卓模拟器	Android emulator
+TCSAS 开发者工具	TCSAS devtools
+WindowServer 窗口合成	WindowServer compositor
+编译 (go/clang/swift…)	build (go/clang/swift…)
+Docker 容器进程	Docker containers
+其它	other
+claude 后台会话机制（daemon / pty-host）	claude background (daemon / pty-host)
+claude（找不到所在窗格）	claude (pane not found)
+内存	Memory
+内存与交换	Memory & swap
+磁盘	Disk
+q 退出 · r 刷新	q quit · r refresh
+d 重新统计	d rescan
+点外面也会关	click outside to close
+资源监视	Resources
+用户 {us}% 系统 {sy}% · {n} 核 · 负载 {load}	user {us}% sys {sy}% · {n} cores · load {load}
+▤ 内存	▤ Mem
+其中 wired {wired} · 压缩器 {comp}	wired {wired} · compressed {comp}
+⇅ 交换	⇅ Swap
+= 拿 SSD 当内存，越多越卡	= SSD used as memory; more means slower
+▣ 磁盘	▣ Disk
+已用 {used}	used {used}
+共 {total} · 剩	{total} total · free
+（数据盘）	(data volume)
+按软件归类（括号里是进程个数）	by app (process count in parentheses)
+({n} 个)	({n})
+筛选中：只看「{g}」	Filtered: only {g}
+再点一次这一行、或按 a，恢复全部	click this row again or press a to show all
+（排序已固定，只刷新数字；按 r 重新排序）	(order frozen, numbers still update; r to re-sort)
+（↑↓ 或点击选一个；←→ / Tab 或点上面的软件行来筛选）	(↑↓ or click to pick one; ←→ / Tab or click an app row above to filter)
+最大的进程	Top processes
+软件	app
+名称	name
+已开	elapsed
+▤ 谁在占内存	▤ Memory
+⚙ 谁在占 CPU	⚙ CPU
+▣ 谁在占磁盘	▣ Disk
+共 {total}，已用 {used}，剩 {free}	{total} total, {used} used, {free} free
+家目录下每一项的大小（统计于 {at}，{state}）	size of each item in your home dir (scanned {at}, {state})
+正在后台重新统计…	rescanning in the background…
+按 d 重新统计	d to rescan
+其中 ~/Library 下面：	of which under ~/Library:
+还没统计过，正在后台扫家目录（几十秒到几分钟，扫完自动显示）…	Not scanned yet; scanning your home dir in the background (tens of seconds to minutes, shows up when done)…
+Docker（在 Colima 虚拟机的磁盘里，不在上面的家目录统计里单独列出，~/.colima 那一项就是它）：	Docker (inside the Colima VM disk; not listed separately above, it is the ~/.colima item):
+可回收 {n}	reclaimable {n}
+这是系统的 1 号进程	This is the system process 1
+系统关键进程 / 终端本身，关了会让整台电脑或所有终端窗口一起出问题	A critical system process or the terminal itself; closing it breaks the whole machine or every terminal window
+这是 tmux 服务端，关了所有 tmux 窗口和里面的会话都没了	This is the tmux server; closing it ends every tmux window and session
+不是你的进程（需要管理员权限，这里不做）	Not your process (needs admin rights; not done here)
+这是这个监视窗口自己（或它的上级）	This is this monitor itself (or its parent)
+用 adb 让模拟器「{avd}」正常关机（emulator-{port}）	Shut down emulator "{avd}" cleanly with adb (emulator-{port})
+它里面没存的东西会丢；别的会话如果正在测它，会被打断。	Anything unsaved in it is lost; other sessions testing on it get interrupted.
+正常退出 TCSAS 开发者工具	Quit TCSAS devtools normally
+它里面没保存的调试现场会丢；别的会话可能正在用它预览或上传，它们下次用时会自己再开。	Unsaved debugging state in it is lost; other sessions may be using it to preview or upload, and will reopen it when needed.
+colima stop（正常停掉 Docker 虚拟机）	colima stop (stop the Docker VM cleanly)
+里面 {n} 个容器会全部停掉（数据在卷里不丢，colima start 后回来）。本地数据库/Redis 都会连不上。	All {n} containers in it stop (data in volumes is kept and comes back after colima start). Local databases/Redis become unreachable.
+给 claude 发 SIGTERM（让它自己退出）	Send SIGTERM to claude (let it exit by itself)
+这个对话会结束；窗格里能用 claude --resume 接回。如果它正在工作，这一轮会丢。	This conversation ends; claude --resume in the pane brings it back. If it is working, this turn is lost.
+给这个 Chrome 进程发 SIGTERM	Send SIGTERM to this Chrome process
+只是 Chrome 的一个进程（标签页/插件/GPU），关了对应的标签页会显示「Aw, Snap」，刷新即可。关主进程会关掉整个 Chrome。	Only one Chrome process (tab/extension/GPU); its tab shows "Aw, Snap" and a reload fixes it. Closing the main process closes all of Chrome.
+给这个进程发 SIGTERM（礼貌地请它退出）	Send SIGTERM to this process (ask it to exit)
+没存的东西会丢。它不退再按 X 强制结束（SIGKILL）。	Anything unsaved is lost. If it does not exit, press X to force it (SIGKILL).
+退出命令没用，已强制结束 {name} 的全部进程	Quit did not work; force-killed every {name} process
+已发出关机	Shutdown sent
+已退出	Exited
+已停止	Stopped
+已发送信号 {sig}	Sent signal {sig}
+进程已经没了	The process is already gone
+没权限（不是你的进程）	No permission (not your process)
+这个进程已经退出了。	This process has exited.
+按 Esc 返回	Esc to go back
+进程详情	Process details
+所属软件	app
+内存       {rss}        CPU  {cpu}%（近一分钟平均）	memory     {rss}        CPU  {cpu}% (1-minute average)
+当前目录	cwd
+监听端口	listening
+子进程     {n} 个	children   {n}
+上级	parents
+命令行	command
+不能在这里关：{why}	Cannot close it here: {why}
+关闭方式	How to close
+注意	Note
+⚠ 这是你当前所在窗格里的进程（你正在用的会话）。关了你正在打字的窗口就没了。	⚠ This process belongs to the pane you are in (the session you are using). Closing it closes the window you are typing in.
+↑↓ 选进程 · Enter/点击 看详情 · ←→/Tab 或点软件行 筛选 · a 看全部	↑↓ pick a process · Enter/click details · ←→/Tab or click an app row to filter · a all
+r 重新排序 · Esc 取消选中	r re-sort · Esc deselect
+q 退出	q quit
+强制结束（SIGKILL，不给它收拾的机会）	force kill (SIGKILL, no chance to clean up)
+确定要 {what} 吗？	{what}?
+对象：	Target:
+按 y 确认	y to confirm
+，其他键取消	, any other key cancels
+关闭	close
+X 强制结束   Esc 返回   ↑↓ 换一个	X force kill   Esc back   ↑↓ next
+Esc 返回	Esc back
+已发送 SIGKILL	Sent SIGKILL
+没权限	No permission
+{res}，已退出。	{res}; it exited.
+{res}，但它还在（有的要几秒）。再看一次，或按 X 强制结束。	{res}, but it is still there (some take a few seconds). Look again, or press X to force it.
+这个进程已经变了（退出了或进程号被别的程序用了），没动。	This process changed (it exited or its pid was reused); nothing done.
+已取消，没动。	Cancelled; nothing done.
+
+# ---- 资源监视（sys-monitor.py）补 -------------------------------------------------
+（{names}…）	({names}…)

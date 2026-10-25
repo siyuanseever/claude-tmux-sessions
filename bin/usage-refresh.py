@@ -51,6 +51,9 @@ import time
 import urllib.error
 import urllib.request
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+from i18n import t as _t  # noqa: E402  界面文字：zh 原样，en 查 lib/en.tsv
+
 HOME = os.path.expanduser("~")
 DEFAULT_CFG = os.path.join(HOME, ".claude")
 CFG = os.path.expanduser(
@@ -105,13 +108,13 @@ def token():
             with open(os.path.join(CFG, ".credentials.json")) as f:
                 raw = f.read()
         except Exception:
-            return None, "找不到 Claude Code 的登录凭据"
+            return None, _t("找不到 Claude Code 的登录凭据")
     try:
         o = json.loads(raw).get("claudeAiOauth") or {}
     except Exception:
-        return None, "凭据格式认不出"
+        return None, _t("凭据格式认不出")
     if (o.get("expiresAt") or 0) / 1000 < time.time():
-        return None, "令牌已过期，开一次 Claude Code 会自动续上"
+        return None, _t("令牌已过期，开一次 Claude Code 会自动续上")
     return o.get("accessToken"), None
 
 
@@ -128,9 +131,9 @@ def fetch():
         with urllib.request.urlopen(req, timeout=15) as resp:
             d = json.load(resp)
     except urllib.error.HTTPError as e:
-        return None, f"查询失败 HTTP {e.code}"
+        return None, _t("查询失败 HTTP {code}").format(code=e.code)
     except Exception as e:
-        return None, f"查询失败（{type(e).__name__}）"
+        return None, _t("查询失败（{err}）").format(err=type(e).__name__)
     return {w: {"utilization": (d.get(w) or {}).get("utilization"),
                 "resets_at": (d.get(w) or {}).get("resets_at")} for w in WINDOWS}, None
 
@@ -154,15 +157,15 @@ def until_str(iso):
     except Exception:
         return "?"
     if left <= 0:
-        return "已经"
+        return _t("已经")
     d, rem = divmod(int(left), 86400)
     h, rem = divmod(rem, 3600)
     m = rem // 60
     if d:
-        return f"{d} 天 {h} 小时"
+        return _t("{d} 天 {h} 小时").format(d=d, h=h)
     if h:
-        return f"{h} 小时 {m} 分"
-    return f"{m} 分钟"
+        return _t("{h} 小时 {m} 分").format(h=h, m=m)
+    return _t("{m} 分钟").format(m=m)
 
 
 def account():
@@ -199,23 +202,26 @@ def show_card(usage, err, live, note=None, refreshing=False):
     data = usage or {w: live.get(w) for w in WINDOWS}
     at = at_str(live.get("fetched_at_ms"))
     who = account()
-    head = f" Claude 额度（{who}）" if who else " Claude 额度"
+    head = " " + (_t("Claude 额度（{who}）").format(who=who) if who else _t("Claude 额度"))
     if refreshing:
-        title = f"{head} · {at} 的数据 · ⟳ 刷新中… " if at else f"{head} · ⟳ 刷新中… "
+        title = (f"{head} · {_t('{at} 的数据').format(at=at)} · {_t('⟳ 刷新中…')} " if at
+                 else f"{head} · {_t('⟳ 刷新中…')} ")
     elif usage:
-        title = f"{head} · {time.strftime('%H:%M')} 刷新 "
+        title = f"{head} · {_t('{at} 刷新').format(at=time.strftime('%H:%M'))} "
     elif note:
-        title = f"{head} · {at or '之前'} 的数据（{note}）"
+        title = f"{head} · {_t('{at} 的数据（{note}）').format(at=at or _t('之前'), note=note)}"
     else:
-        title = " 没刷新成功：" + (err or "未知原因") + " "
+        title = " " + _t("没刷新成功：{err}").format(err=err or _t("未知原因")) + " "
     items = []
     for label, w in (("5 小时", "five_hour"), ("7 天", "seven_day")):
         u = data.get(w) or {}
+        label = _t(label)
         if u.get("utilization") is None:
-            items += [f"{label}   没有数据", "", ""]
+            items += [f"{label}   {_t('没有数据')}", "", ""]
             continue
-        items += [f"{label}   已用 {round(u['utilization'])}%", "", ""]
-        items += [f"      {until_str(u.get('resets_at'))}后重置（{reset_str(u.get('resets_at'))}）", "", ""]
+        items += [f"{label}   {_t('已用 {pct}%').format(pct=round(u['utilization']))}", "", ""]
+        items += ["      " + _t("{until}后重置（{at}）").format(
+            until=until_str(u.get('resets_at')), at=reset_str(u.get('resets_at'))), "", ""]
         items += [""]                                   # separator
     if items and items[-1] == "":
         items.pop()
@@ -289,7 +295,7 @@ def main():
         if force and now_ms - (live.get("attempted_at_ms") or 0) < FORCE_GAP * 1000:
             lock.close()            # not held while the card is up
             if notify:
-                show_card(None, None, live, note="刚刚刷新过").wait()
+                show_card(None, None, live, note=_t("刚刚刷新过")).wait()
             return
         # The card first, with what we have: the request takes ~2s and the
         # click should answer now, not then.
