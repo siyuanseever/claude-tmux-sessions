@@ -7,7 +7,7 @@
 
 [English](README.md)
 
-<!-- TODO: 演示 GIF（打开 → 点一轮 → 拉窄 → 拉宽 → 点 Git 按钮） -->
+![claude-trail 在 herdr 里：打开、点一轮跳转、拉窄、拉宽、点 Git 按钮](docs/demo.gif)
 
 claude-code-history-viewer、claude-code-transcripts 这类工具是事后翻看会话的。
 claude-trail 管的是你正在用的这个会话：贴在运行中的 Claude 旁边，跟着它走。

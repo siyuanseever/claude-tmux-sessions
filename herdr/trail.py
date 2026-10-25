@@ -904,6 +904,7 @@ def sidebars():
     except (OSError, ValueError, KeyError, HerdrError):
         return {}
     out = {}
+    RUN.mkdir(parents=True, exist_ok=True)    # 新装的还没有这个目录：以前在这里直接崩，自动打开永远不生效
     for f in RUN.glob("*.json"):
         try:
             d = json.loads(f.read_text())

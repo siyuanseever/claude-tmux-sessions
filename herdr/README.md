@@ -8,7 +8,7 @@ On top: the model, the account, and context / 5-hour / 7-day quota bars.
 
 [中文说明](README.zh-CN.md)
 
-<!-- TODO: demo GIF (open → click a turn → narrow → wide → Git button) -->
+![claude-trail in herdr: open, click a turn, narrow, wide, Git button](docs/demo.gif)
 
 Tools like claude-code-history-viewer or claude-code-transcripts let you browse sessions after the fact.
 claude-trail is for the session you are in: it stays beside the live Claude and follows it as it works.
