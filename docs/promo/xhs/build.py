@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """小红书组图：8 张 1080×1440 竖图 → docs/xhs/01.png … 08.png。
 
-    python3 docs/xhs/build.py
+    python3 docs/promo/xhs/build.py
 
-每张图是一页 HTML（图用 docs/ 下的现成截图，全是演示数据），无界面 Chrome 按 2 倍截图再缩回 1080×1440。
+每张图是一页 HTML（图用这个目录里的裁剪图和 docs/img/ 下的截图，全是演示数据），无界面 Chrome 按 2 倍截图再缩回 1080×1440。
 Chrome 用一个固定的配置目录，只杀自己起的那个；起之前确认它不会下载本地 AI 模型。
 """
 import os
@@ -13,8 +13,8 @@ from pathlib import Path
 
 from PIL import Image
 
-DOCS = Path(__file__).resolve().parent.parent
-OUT = DOCS / "xhs"
+OUT = Path(__file__).resolve().parent
+IMG = OUT.parents[1] / "img"
 TMP = Path(os.environ.get("TMPDIR", "/tmp")) / "claude-tmux-xhs"
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 PROFILE = Path(os.environ.get("TMPDIR", "/tmp")) / "claude-tmux-render-chrome"
@@ -56,8 +56,9 @@ pre { margin-top:36px; background:var(--card); border:1px solid var(--line); bor
 """
 
 
-def img(name):
-    return f'<div class="shot"><img src="{(DOCS / name).as_uri()}"></div>'
+def img(name):   # 先找这个目录里的裁剪图，再找 docs/img/
+    path = OUT / name if (OUT / name).exists() else IMG / name
+    return f'<div class="shot"><img src="{path.as_uri()}"></div>'
 
 
 def page(n, body):
@@ -76,7 +77,7 @@ SLIDES = [
 <h1>一个人，<br>带<em>两支 Claude 团队</em></h1>
 <div class="sub">我给 Claude Code 写了一套 tmux 控制台，已开源</div>
 <div class="chips"><span class="chip">底栏</span><span class="chip">选择器</span><span class="chip">侧栏</span><span class="chip">一键换账号</span></div>
-""" + img("xhs/cover-crop.png"),
+""" + img("cover-crop.png"),
     # 2 用法
     """<div class="kicker">我的用法</div>
 <h1>一个账号管一个项目，<br>一个会话担一个职位</h1>
@@ -95,33 +96,33 @@ SLIDES = [
     # 4 底栏
     """<div class="kicker">底栏</div>
 <h1>底栏一直告诉你：<br><em>谁在等你</em></h1>
-""" + img("xhs/bar-left.png") + """
+""" + img("bar-left.png") + """
 <div class="legend">
 <div><i style="color:var(--wait)">⏸</i>在等你确认</div><div><i style="color:var(--done)">✔</i>做完了，你还没看</div>
 <div><i style="color:var(--run)">▶</i>在跑，不用管</div><div><i style="color:var(--read)">✓</i>做完了，你看过了</div>
 </div>
-<div class="sub" style="margin-top:34px">有会话卡在确认上，还会挂一条红色告警，直到你去处理：</div>
+<div class="sub" style="margin-top:34px">有会话卡在确认上，⏸ 变红，那个窗口在窗口列表里也是红的，点 ⏸ 直接跳过去：</div>
 """ + img("statusbar.png") + """
 <div class="sub" style="margin-top:34px">右边是整机 CPU、内存、交换、磁盘。每一段都能点：</div>
-""" + img("xhs/bar-right.png"),
+""" + img("bar-right.png"),
     # 5 选择器
     """<div class="kicker">选择器</div>
 <h1>一个键，<br>一眼看完所有会话</h1>
-""" + img("xhs/picker-list.png") + lis([
+""" + img("picker-list.png") + lis([
         "<b>按项目分组</b><span>：一个 tmux session 一个项目</span>",
         "<b>右边是实时画面</b><span>：光标停在哪个就看哪个</span>",
         "<b>按编号直接跳</b><span>：看过的自动变 ✓，列表只留要你处理的</span>"]),
     # 6 侧栏
     """<div class="kicker">侧栏</div>
 <h1>侧栏只管<br><em>眼前这一个会话</em></h1>
-""" + img("xhs/sidebar-short.png") + lis([
+""" + img("sidebar-short.png") + lis([
         "<b>每一轮一项</b><span>：点一下，主界面滚到那一轮</span>",
         "<b>额度三条</b><span>：上下文、5 小时、7 天，快超了才变色</span>",
         "<b>一排按钮</b><span>：git、文件、刷新额度、换账号</span>"]),
     # 7 换账号
     """<div class="kicker">换账号</div>
 <h1>额度用完，<br>点一下 ⇄ 接着干</h1>
-""" + img("xhs/hdr-before.png") + """<div class="arrow">↓ 点 ⇄，同一个会话换到另一个账号</div>""" + img("xhs/hdr-after.png") + lis([
+""" + img("hdr-before.png") + """<div class="arrow">↓ 点 ⇄，同一个会话换到另一个账号</div>""" + img("hdr-after.png") + lis([
         "<b>对话接着聊</b><span>：用另一个账号恢复同一个会话</span>",
         "<b>拿不准就不动</b><span>：在干活、输入框里有字，一律跳过</span>"]),
     # 8 开源

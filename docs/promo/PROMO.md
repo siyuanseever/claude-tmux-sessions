@@ -1,5 +1,8 @@
 # 推广手册 (internal notes)
 
+> 2026-07 的旧稿：里面说的「红底白字 WAIT 告警」「界面只有中文」「`docs/picker.png`」都已经过时。
+> 各渠道的打法还能参考；现状和决定以 [GUIDE.zh-CN.md](GUIDE.zh-CN.md) 为准。
+
 给 `claude-tmux-sessions` 用的发布材料:分阶段策略、各渠道现成文案、录屏配方、以及发布前的检查清单。这份文档不面向用户,是自己用的。
 
 ---

@@ -137,9 +137,9 @@
 | 图 | 用在哪 | 来源 / 怎么做 |
 |---|---|---|
 | **工作方式框架图**：账号 = 项目、会话 = 职位、我只在需要时被叫、共享记忆层、多个账号的额度时间条 | 文章主图、README 开头 | 照已有的一张深色框架图重画，项目名换成中性的（项目 A / B / C），去掉一切真实项目名 |
-| 选择器截图 | 「所有会话在干什么」 | `docs/picker.png`，`docs/demo/` 用演示数据生成，可以直接用 |
-| 底栏截图 | 「有没有人在等我」 | `docs/statusbar.png`，同上 |
-| 侧栏截图 | 「这个会话说过什么、改了什么、用的哪个号」 | 待做：用演示数据造一个侧栏画面 |
+| 选择器、底栏、侧栏、点 ✔ 弹出的列表、git / 文件浮窗、整屏 | 各节配图 | `docs/img/*.png`，`docs/demo/shots.sh` 用演示数据生成（英文界面：`CLAUDE_TMUX_LANG=en docs/demo/shots.sh docs/img/en`） |
+| 整套工作台框架图 | 总介绍 `docs/workbench*.md` | `docs/img/workbench.svg`（英文 `docs/img/en/workbench.svg`），`shots.sh` 顺手渲染成 png |
+| Web 面板三页 | 总介绍 ④ | `docs/img/web-*.png`，私有仓库 usage-monitor 的 `demo/make_shots.py` 生成（演示数据），裁成首屏 |
 | 时间线图：几个项目并行推进的样子 | 文章里讲「一个人推进几条线」 | 照已有的时间线样式重画一张虚构的，不用真实进度 |
 | **10 秒 GIF** | V2EX / HN / Reddit / README | 分镜见下 |
 
@@ -186,7 +186,7 @@ GIF 分镜（10–12 秒，演示数据，不用真实会话）：
       VPN、个人手册、语音词表）一律不搬。写死的路径改成可配置。
 - [x] tmux 配置做成一个可以直接 `source` 的片段（`tmux/claude-tmux.conf`，按键、鼠标、钩子）。
 - [x] `install.sh` 装全套，在干净的用户目录里真跑一遍。
-- [x] 框架图（`framework.svg/png`）、侧栏截图（`sidebar.png`）、GIF（`demo.gif`，`demo/gif.sh` 生成）。
+- [x] 框架图（`img/framework.svg/png`）、侧栏截图（`img/sidebar.png`）、GIF（`img/demo.gif`，`demo/gif.sh` 生成）。
 - [x] README 按这份重写开头，把「已知限制」放进去。
 - [x] 知乎稿 `zhihu.md`、小红书 8 张图和文案 `xhs/`。
 - [x] 发到知乎、小红书（2026-10-24 16:20–16:21，作者看过原文后发）：
@@ -195,3 +195,31 @@ GIF 分镜（10–12 秒，演示数据，不用真实会话）：
     2026-10-24 在编辑页逐张补传后「更新」，公开页上 7 张都在。
   - 小红书：发在了「忧忧兔🐰」号上（森森物语的绘本号，不是个人号），标题「一个人带两支 Claude 团队｜开源工具」，
     发布时在审核中；作者决定留着。
+
+## 2026-10-25：文档重组、英文版
+
+起因（作者原话大意）：介绍不完整 —— 没讲 Claude 的 Web 后台、语音输入和它的纠错 / 大模型校对、
+git 和文件按钮打开的工具、点底栏状态弹出选择器的逻辑；有些截图意义不大或者是旧仓库搬来的、不是现在的样子；
+还要英文界面（安装时可选）和一篇英文推广文章。
+
+漏掉的原因（查过）：Web 面板在私有仓库 usage-monitor，里面混着账单、AccessKey 用法、VPN，所以当时有意没写；
+语音输入是另一个公开仓库，总介绍只提了一句；lazygit / yazi 在 README 里一次都没出现，只在代码注释里；
+点底栏有文字和表格、没有图。`docs/picker.png`、`docs/statusbar.png` 是 2026-07-31 旧仓库的，
+`statusbar.png` 画的「红底白字 WAIT 告警」9 月 29 日就改掉了。
+
+决定：
+
+- 总介绍放仓库里（`docs/workbench.zh-CN.md` / `docs/workbench.md`），不用 GitHub Wiki —— 跟代码一起提交、一起改。
+- Web 面板只写 Claude 的三个分页（用量 / 会话 / 配置），截图用演示数据，标「未开源」。账单、VPN 不出现。
+- 所有截图挪进 `docs/img/`，由 `docs/demo/shots.sh`、`gif.sh` 从真代码生成；旧图删掉。推广材料挪进 `docs/promo/`。
+- 英文界面：`./install.sh --lang en|zh`，存在 `~/.config/claude-tmux/lang`，`CLAUDE_TMUX_LANG` 可覆盖；不写按系统语言，
+  老用户没重装就还是中文。
+- 英文文章草稿 `article.en.md`，建议先发 dev.to（长文、图、Markdown 跟知乎最像），之后去 r/ClaudeAI / HN 贴链接。
+  **没发**，等作者看原文、说「发」。
+
+遗留：
+
+- 知乎线上那篇还写着「还可以挂一条红色告警」并配了旧告警图，跟现在的行为不符；仓库里的 `zhihu.md` 已改。
+  要不要去知乎更新，作者定。
+- 小红书第 4 张图（`xhs/04.png`）也是旧告警的说法；`build.py` 的文字已改，图没重出、笔记没动。
+
