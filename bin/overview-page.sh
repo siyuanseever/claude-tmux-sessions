@@ -20,6 +20,7 @@ set -euo pipefail
 
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OVERVIEW="$BIN_DIR/overview.py"
+. "$BIN_DIR/../lib/i18n.sh"
 
 # Bound directly to `o` in the picker (see the comment there), so it also
 # fires while the search input is open — where `o` must type an o, not open
@@ -47,7 +48,7 @@ list_w=$(( cols - cols * PREVIEW_PCT / 100 - 4 ))
 ( python3 "$BIN_DIR/token-report.py" --scan --days 1 --cache "$TOKENS" \
     >/dev/null 2>&1 & ) || true
 
-KEYS='j/k 选 · Enter 跳过去 · p 预览 · r 刷新 · q 返回'
+t 'j/k 选 · Enter 跳过去 · p 预览 · r 刷新 · q 返回'; KEYS="$T"
 # The resource block *is* the footer, so it stays on screen while you walk
 # the cards instead of sitting at the bottom of a page you scrolled off.
 # Computed once — it reads transcripts, and none of the keys here change it.
@@ -58,7 +59,8 @@ FOOTER="$FOOTER"$'\n'$'\033[2m  '"$KEYS"$'\033[0m'
 # it into an fzf action would put unbalanced-looking brackets in a string fzf
 # parses by matching parentheses.
 printf '%s\n' "$FOOTER" > "$WORK/footer"
-printf '%s\n' "$FOOTER" $'  \033[33m⚠ 这一行没有可以跳过去的 pane\033[0m' > "$WORK/footer.warn"
+t '⚠ 这一行没有可以跳过去的 pane'
+printf '%s\n' "$FOOTER" $'  \033[33m'"$T"$'\033[0m' > "$WORK/footer.warn"
 export JUMP_WARN_FILE="$WORK/footer.warn"
 
 # Rebuild everything the state can have changed — rows, greeting, and the
@@ -76,13 +78,14 @@ REDRAW="$REDRAW+transform-footer(cat $(printf '%q' "$WORK/footer"))"
 #
 # Deliberately no --height: fzf then runs full-screen on the alternate
 # buffer, so leaving restores the picker's screen underneath.
+t '现在什么状态'; label=" $T "
 fzf --ansi --delimiter=$'\t' --with-nth=1 --disabled --no-input \
   --layout=reverse \
   --header="$(python3 "$OVERVIEW" --head --width "$list_w")" \
   --footer="$FOOTER" \
   --preview "python3 $(printf '%q' "$OVERVIEW") --card {3} --tokens $(printf '%q' "$TOKENS") --width \${FZF_PREVIEW_COLUMNS:-80}" \
   --preview-window="right,${PREVIEW_PCT}%,border-left,nowrap" \
-  --preview-label=' 现在什么状态 ' \
+  --preview-label="$label" \
   --bind "j:down" --bind "k:up" \
   --bind "p:toggle-preview" \
   --bind "r:$REDRAW" --bind "o:$REDRAW" \

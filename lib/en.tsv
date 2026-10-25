@@ -90,3 +90,79 @@ pane 已经不存在了 (%s)。	Pane no longer exists (%s).
 峰值	peak
 日均	avg/day
 ※ 额度百分比为 Claude Code {note}缓存的 /usage 数据 · 其余为本地实时统计	※ quota % is the /usage data Claude Code cached {note} · the rest is counted live from local logs
+
+# ---- 总览页 / token 页的 shell 部分（overview-page.sh / token-page.sh / jump-handoff.sh） ----
+j/k 选 · Enter 跳过去 · p 预览 · r 刷新 · q 返回	j/k select · Enter go · p preview · r refresh · q back
+⚠ 这一行没有可以跳过去的 pane	⚠ nothing to jump to on this row
+现在什么状态	current state
+1 今日 · 7 近 7 天 · j/k 选会话 · Enter 跳过去 · p 预览 · r 重新统计 · q 返回	1 today · 7 last 7 days · j/k select · Enter go · p preview · r recount · q back
+⚠ 这个会话已经不在 tmux 里了,跳不过去	⚠ this session is no longer in tmux, nothing to jump to
+这个会话花在哪	where the tokens went
+这里没有可以跳过去的 pane	nothing to jump to here
+
+# ---- 总览页（overview.py） ------------------------------------------------------
+{n} 个等你确认	{n} waiting for you
+{n} 个有结果等你看	{n} done, waiting for a look
+没人等你 · {n} 个还在跑	nobody waiting · {n} still running
+没人等你 · 也没人在跑	nobody waiting · nothing running
+舰桥	Overview
+{s} 个 session · 在册 {n} · 在跑 {run} · 等你 {need} · 已读 {read}	{s} sessions · {n} tracked · {run} running · {need} for you · {read} read
+放久了 {n}	{n} stale
++{n} 安静	+{n} quiet
+没有 pane	no pane
+{pane} 没在跟踪	{pane} not tracked
+读入 {n}	read {n}
+{n} 轮	{n} turns
+均/轮 {n}	avg/turn {n}
+这个 pane 已经不在了。	This pane is gone.
+位置	where
+目录	dir
+模型	model
+编队	team
+{n} 条未读	{n} unread
+开场	task
+更新	updated
+已读	read
+会话	session
+这个 session 已经不在了。	This session is gone.
+{n} 个 pane	{n} panes
+等确认	waiting
+有结果	done
+在跑	running
+放久了	stale
+状态	status
+窗口	windows
+最急	urgent
+花名册里已经没有这个成员了。	This member is no longer on the roster.
+角色	role
+类型	type
+花名册里写着 {pane},但那个 pane 没在跟踪 —— 可能已经关了,或者里面的 Claude 从没发过 hook。	The roster says {pane}, but that pane isn't tracked — it may have closed, or its Claude never sent a hook.
+花名册里有它,但没有对应的 tmux pane,所以跳不过去。队员只有真正跑起来过才会有 pane。	It's on the roster but has no tmux pane, so there is nothing to jump to. A teammate only gets a pane once it has actually run.
+
+# ---- token 页（token-report.py） ----------------------------------------------
+近 {n} 天	last {n} days
+{label} token 消耗	Token usage, {label}
+{n} 个会话	{n} sessions
+前 5 名占读入 {pct}%	top 5 = {pct}% of reads
+这个窗口里没有记录到任何一轮对话。	No turns recorded in this window.
+轮数	turns
+平均每轮上下文 {n}	avg context/turn {n}
+缓存读取	cache rd
+缓存写入	cache wr
+输出	output
+新输入	input
+项目	project
+读入	read
+均/轮	avg
+已经不在 tmux 里了	no longer in tmux
+未命名会话	untitled session
+轮数 {n}	turns {n}
+峰值 {n}	peak {n}
+分天	by day
+按每轮上下文	context per turn
+占窗口读入量 {pct}%	{pct}% of the window's reads
+(没有留下回复内容)	(no reply left)
+会话排行	Sessions
+· 按读入量	· by tokens read
+还有 {n} 个会话未显示	{n} more sessions not shown
+~98% 的 token 是重读已有上下文,所以「均/轮」比轮数更能解释谁贵。	~98% of tokens re-read existing context, so avg/turn explains cost better than turn count.
