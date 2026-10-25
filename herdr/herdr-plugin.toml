@@ -34,12 +34,10 @@ placement = "split"
 command = ["python3", "trail.py", "pane"]
 
 
-# 表头 / 细条上的按钮（配置里的 [[buttons]]，默认 Git = lazygit、文件 = yazi）：在 Claude 那一格的目录里开浮窗，
-# 程序退出浮窗就关。命令由 trail.py 经 CLAUDE_TRAIL_CMD 传进来。
+# 底部的自定义按钮（配置里的 [[buttons]]，默认 Git = lazygit、文件 = yazi）：trail.py 把它开在 Claude 右边
+# （占 Claude 那一块的 60%），点外面就关。命令由 trail.py 经 CLAUDE_TRAIL_CMD 传进来。
 [[panes]]
 id = "tool"
 title = "Tool"
-placement = "popup"
-width = "85%"
-height = "85%"
+placement = "split"
 command = ["sh", "-c", "cd \"${CLAUDE_TRAIL_CWD:-$PWD}\" && exec sh -c \"$CLAUDE_TRAIL_CMD\""]

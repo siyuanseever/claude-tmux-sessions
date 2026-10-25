@@ -94,6 +94,7 @@ FRAME = 2                          # herdr 给窗格画的边框：tty 比 pane.
 # 宽版最多挤到 Claude 剩多少列：Claude 自己的 /diff 面板要终端至少 110 列才开得出来
 # （code.claude.com/docs/en/interactive-mode.md「Diff panel」）。放不下宽版就用窄版
 CLAUDE_MIN = 110
+TOOL_SHARE = 0.6                   # 按钮开的工具（lazygit / yazi）占 Claude 那一块的比例，左边的 Claude 还看得见
 GONE_GRACE = 15                    # Claude 退出后等多少秒才关轨迹：切账号时 Claude 会退出再重启
 LATER = (0.5, 1.5)                 # Claude 状态变了之后再补刷几次：Stop 时最后那条回复还没写进对话记录
 VERSION = re.compile(r"^\d+\.\d+\.\d+$")   # Claude Code 的进程名是版本号
@@ -203,10 +204,6 @@ ICONS = {
     "wide":    ("", "«",     "<<"),       # 窄版左上角：拉回宽版
     "bottom":  ("", "⇊",     "End"),      # 主界面到最底
     "usage":   ("", "⟳",     "Ref"),      # 马上查一次额度
-    "working": ("", "◐",     "工作中"),
-    "blocked": ("", "◆",     "等你"),
-    "done":    ("", "✓",     "完成"),
-    "unknown": ("", "○",     "—"),
     "model":   ("", "✦",     ""),         # 模型前面的标记
     "account": ("", "@",     ""),         # 账号前面的标记
     "ctx":     ("", "◧",     "ctx"),
@@ -231,9 +228,6 @@ def button_icon(b):
     return icon(ic) if ic in ICONS else ic
 
 
-# 状态的颜色和 herdr 左侧 Agents 栏一致：工作中 yellow、等你 red、完成 green（theme.apply 换上去的）
-STATUS = {"working": ("working", "BUSY_C"), "blocked": ("blocked", "ALERT_C"),
-          "done": ("done", "DONE_C"), "idle": ("done", "DONE_C")}
 SLOT, GAP = 3, 1
 
 
@@ -286,6 +280,13 @@ def short_model(model):
     """`Opus 5.5/high` → `Opus5.5/hi`：窄版一行只有十来列。"""
     name, _, effort = (model or "").partition("/")
     return name.replace(" ", "") + (f"/{effort[:2]}" if effort else "")
+
+
+def sh_out(*cmd):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=3).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
 
 
 def fzf(sock, action):
@@ -350,6 +351,8 @@ class Sidebar:
         self.proc, self.wide = None, None     # self.wide：宽版上次的列数，从窄版切回去时还原
         self.mode = None                      # "wide" / "narrow"：按窗格实际宽度定（mode_for），不是按钮切的
         self.no_claude_since = None           # 这一格里从什么时候起不是 Claude 了
+        self.tool = None                      # (工具窗格, 第几个按钮)：开着的 lazygit / yazi 之类
+        self.tool_check = None                # 焦点离开工具窗格的时刻：0.4 秒后还不在它身上就关
         self.wake_r, self.wake_w = os.pipe()  # 跳转线程 / 额度线程 / 信号 叫醒主循环
         os.set_blocking(self.wake_w, False)
 
@@ -457,14 +460,13 @@ class Sidebar:
         return self.narrow_header(width) if self.mode == "narrow" else self.wide_header(width)
 
     def narrow_header(self, width):
-        """窄版表头（自上而下）：拉回宽版的 « / 状态 / 模型 / 账号 / ctx、5h、7d 百分比，下面那条边框就是分隔线。
+        """窄版表头（自上而下）：拉回宽版的 « / 模型 / 账号 / ctx、5h、7d 百分比，下面那条边框就是分隔线。
         平时灰，快到上限才上色，规则和宽版的柱子一样。放不下的按 账号 → 模型 → 7d 的顺序丢。
         on_command 按行号认：第 1 行切换，带百分比的那几行点了查一次额度。"""
         room = max(4, width - 2)                       # fzf 表头左边留 2 列
-        st, colour = STATUS.get(self.status, ("unknown", "DIMC"))
         flash = f" {R.WARN_C}!{R.RESET}" if self.flash and time.monotonic() < self.flash[1] else ""
-        lines = [f" {R.BOLD}{icon('wide')}{R.RESET}{flash}",    # « 在第 4 列，和宽版的 » 同一个位置（fzf 表头左边留 2 列）
-                 f"{getattr(R, colour)}{icon(st)}{R.RESET}"]
+        # 不画 Claude 的状态（工作中 / 等你 / 完成）：herdr 左侧的 Agents 栏已经有了，只显示 herdr 没有的（用户定的）
+        lines = [f" {R.BOLD}{icon('wide')}{R.RESET}{flash}"]    # « 在第 4 列，和宽版的 » 同一个位置（fzf 表头左边留 2 列）
         model, ctx = self.model_ctx()
         acct = claude.short_account(self.cfg_dir)
         u = claude.read_usage(self.cfg_dir)
@@ -561,7 +563,7 @@ class Sidebar:
             if self.mode == "narrow":
                 if ln == "1":
                     self.act("wide")
-                elif int(ln) >= 3:             # 模型、账号、百分比那几行：查一次额度
+                elif int(ln) >= 2:             # 模型、账号、百分比那几行：查一次额度
                     self.kick_usage(force=True)
                 return
             if int(ln) >= 3:                   # 宽版的模型 / ctx / 5h / 7d 那几行：去查一次真实额度
@@ -602,6 +604,12 @@ class Sidebar:
             except (OSError, ValueError, HerdrError) as e:
                 self.say(f"{action}: {e}")
             return
+        index = CFG["buttons"].index(button)
+        if self.tool:                         # 再点同一个按钮 = 关；点另一个 = 换过去
+            same = self.tool[1] == index
+            self.close_tool()
+            if same:
+                return
         cmd = button["command"]
         try:
             prog = shlex.split(cmd)[0]
@@ -611,12 +619,29 @@ class Sidebar:
             self.say(_t("找不到 {p}").format(p=prog))
             return
         cwd = (pane_info(self.target) or {}).get("foreground_cwd") or ""
+        env = {"CLAUDE_TRAIL_CWD": cwd, "CLAUDE_TRAIL_CMD": cmd, "PATH": os.environ.get("PATH", "")}
+        if prog == "lazygit":                 # 在最外层按 Esc 也退出，和 yazi 一样（叠加在你自己的配置后面）
+            mine = Path(sh_out("lazygit", "--print-config-dir").strip() or "/nonexistent") / "config.yml"
+            env["LG_CONFIG_FILE"] = ",".join([*([str(mine)] if mine.exists() else []), str(HERE / "tools" / "lazygit.yml")])
+        # 开在 Claude 右边、占 Claude 那一块的 TOOL_SHARE，左边的 Claude 还看得见；点外面（焦点挪走）就关。
+        # 不用 herdr 的 popup：它只能居中、是整个会话的模态窗口，盖住 Claude、点外面也不关（用户 2026-10-25 报的）。
+        # herdr 0.9.5 没有 tmux 那种不挤别人的浮动窗格，所以 Claude 会暂时变窄、重新换行。
         try:
-            # popup 不收 target_pane_id（herdr 回 invalid_params：popup panes target the active pane），目录用环境变量传
-            call("plugin.pane.open", plugin_id=PLUGIN_ID, entrypoint="tool", placement="popup",
-                 env={"CLAUDE_TRAIL_CWD": cwd, "CLAUDE_TRAIL_CMD": cmd, "PATH": os.environ.get("PATH", "")})
-        except (OSError, ValueError, HerdrError) as e:
-            self.say(f"{prog}: {e}")                 # 比如设置页开着时 herdr 回 ui_busy
+            r = call("plugin.pane.open", plugin_id=PLUGIN_ID, entrypoint="tool", placement="split",
+                     target_pane_id=self.target, direction="right", focus=True, env=env)
+            pane = r["plugin_pane"]["pane"]["pane_id"]
+            call("pane.resize", pane_id=pane, direction="left", amount=TOOL_SHARE - 0.5)
+            self.tool, self.tool_check = (pane, index), None
+        except (OSError, ValueError, KeyError, HerdrError) as e:
+            self.say(f"{prog}: {e}")
+
+    def close_tool(self):
+        if self.tool:
+            try:
+                call("pane.close", pane_id=self.tool[0])
+            except (OSError, ValueError, HerdrError):
+                pass
+        self.tool, self.tool_check = None, None
 
     # -- 跳转 --
 
@@ -670,8 +695,9 @@ class Sidebar:
         别的插件（比如 herdr-sidebar 每几秒更新一次自己的 token）会一直把这里叫醒。"""
         s = socket.socket(socket.AF_UNIX)
         s.connect(SOCK)
+        # pane.focused：工具窗格开着时，点了别处（焦点挪走）就关掉它，和 tmux 版「点浮窗外面就关」一样
         subs = [{"type": "pane.agent_status_changed", "pane_id": self.target},
-                {"type": "pane.closed"}, {"type": "pane.exited"}]
+                {"type": "pane.closed"}, {"type": "pane.exited"}, {"type": "pane.focused"}]
         s.sendall((json.dumps({"id": "trail", "method": "events.subscribe",
                                "params": {"subscriptions": subs}}) + "\n").encode())
         buf = b""
@@ -836,6 +862,16 @@ class Sidebar:
                         name, data = (ev.get("event") or "").replace(".", "_"), ev.get("data") or {}
                         if name in ("pane_closed", "pane_exited") and data.get("pane_id") == self.target:
                             gone = True
+                        if self.tool and name in ("pane_closed", "pane_exited") and data.get("pane_id") == self.tool[0]:
+                            self.tool, self.tool_check = None, None   # 在工具里按 q / Esc 退出了，窗格自己关了
+                            try:                                      # herdr 会把焦点给隔壁（轨迹），还给 Claude
+                                call("pane.focus", pane_id=self.target)
+                            except (OSError, ValueError, HerdrError):
+                                pass
+                        if self.tool and name == "pane_focused" and data.get("pane_id") != self.tool[0]:
+                            # 等 0.4 秒再看：焦点还不在工具上才关（照 tmux 版，免得一闪而过的焦点变化把它关了）
+                            self.tool_check = time.monotonic() + 0.4
+                            self.later(0.45)
                         if name == "pane_agent_status_changed":
                             stale = True
                             self.later(*LATER)
@@ -849,6 +885,12 @@ class Sidebar:
                     *lines, buf = buf.split(b"\n")
                     for ln in lines:
                         self.on_command(ln.decode("utf-8", "replace"))
+                if self.tool_check and time.monotonic() >= self.tool_check:
+                    self.tool_check = None
+                    focused = next((p["pane_id"] for p in (call("pane.list").get("panes") or [])
+                                    if p.get("focused") and p.get("tab_id") == (pane_info(self.target) or {}).get("tab_id")), None)
+                    if self.tool and focused != self.tool[0]:
+                        self.close_tool()
                 if stale:
                     if not self.refresh():
                         break
@@ -860,6 +902,7 @@ class Sidebar:
                         self.push()
         finally:
             self.jump_token += 1
+            self.close_tool()
             for p in (self.reg, self.fifo, self.sock, self.rows_file, self.rows_file.with_suffix(".tmp")):
                 p.unlink(missing_ok=True)
             self.stop_fzf()

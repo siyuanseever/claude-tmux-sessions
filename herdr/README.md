@@ -21,12 +21,13 @@ claude-trail is for the session you are in: it stays beside the live Claude and 
   are not: a quota bar turns orange or red when you are using it faster than the window passes, not just when it is
   high. Two Claude accounts at once (separate `CLAUDE_CONFIG_DIR`s) are fine; each pane shows its own.
 - **Wide and narrow.** Drag the divider: at 30 columns or more you get the full view, below that a narrow one
-  (status, short model and account names, percentages, one short row per turn). `»` / `«` in the top-left corner
+  (short model and account names, percentages, one short row per turn). `»` / `«` in the top-left corner
   jumps between the two widths. There is no close button: the narrow view is how you put it away.
-- **Follows herdr.** Colours come from your herdr theme, the status dot uses the same colours as herdr's agent list,
-  and a tab you never named gets the Claude session's name.
-- **Your buttons.** A row at the bottom for your own tools — by default Git (lazygit) and Files (yazi), opened in a
-  popup in Claude's working directory.
+- **Follows herdr, adds only what herdr lacks.** Colours come from your herdr theme, and a tab you never named gets
+  the Claude session's name. Claude's running / waiting state is not repeated: herdr's agent list already shows it.
+- **Your buttons.** A row at the bottom for your own tools — by default Git (lazygit) and Files (yazi). A tool opens
+  to the right of Claude in Claude's working directory, so Claude stays visible on the left; click anywhere outside it,
+  or press Esc / q, to close it.
 
 ## Install
 
