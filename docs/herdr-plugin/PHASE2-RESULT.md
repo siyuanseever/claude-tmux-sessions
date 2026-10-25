@@ -179,6 +179,59 @@
    要像以前一样看实时数字，就在插件配置（`herdr plugin config-dir claude-trail` 那个目录的 `config.toml`）里写 `live_usage = true`。
    我没替你改。
 
+## 评估：用 statusLine 桥接拿额度和上下文（不碰令牌）
+
+起因：默认改读 `.claude.json` 的 `cachedUsageUtilization` 以后，你这台的缓存停在 10 月 9 日，5h / 7d 显示「?」。
+这条路当默认值太弱，别人装上大概率也是「?」。
+
+**数据源属实**（官方文档 `code.claude.com/docs/en/statusline.md`）：
+
+- statusLine 命令的 stdin 里有：
+  - `rate_limits.five_hour / seven_day` 的 `used_percentage`（0–100）和 `resets_at`（Unix 秒），第 193–194 行
+  - `context_window` 的 `used_percentage`、`context_window_size`、`total_input_tokens`，第 184–187 行
+  - `session_id`、`transcript_path`，第 198–201 行
+- `rate_limits` 只对 Pro / Max 订阅出现，要等会话里第一次 API 响应之后；窗口过了 `resets_at` 就被去掉（第 344 行）。
+  你的账号是 Max（`.claude.json` 里 `userRateLimitTier` = `default_claude_max_5x`），能拿到。
+- 刷新时机：会话开始跑一次；之后每来一条回复、`/compact` 结束、换权限模式等时机再跑，300ms 防抖；
+  新一次触发会取消还在跑的那次（第 140–152 行）。
+
+**好处**
+
+- 不碰令牌、不发请求，数字是 Claude Code 自己算好的，Claude 每回复一条就更新。
+- 按 `session_id` 存一份正好对上轨迹看的那个会话，两个账号自然各是各的，不用再靠配置目录去对。
+- 上下文也有官方的 `used_percentage`。注意它只算输入 token（第 370 行），和我们现在「输入 + 输出」的算法会差一点，
+  接入时要统一成一种。
+
+**代价和风险**
+
+- **你这种不配 statusLine 的人会多一行空白。** tmux 版 `hooks/ctx_to_tmux.py` 第 3–6 行是你自己 2026-10-07 实测两次记下的：
+  只要配了 statusLine，Claude Code 就在输入框下面留一整行，脚本什么都不输出也留，所以当时拿掉了。
+  对已经有 statusLine 的人，桥接是零代价；对你，代价就是这一行。
+- **要用户自己改 settings.json。** 插件不改它，README 要教人把
+  `"statusLine": {"type": "command", "command": "<插件目录>/bridge.sh <原来的命令>"}` 接上。改错了就是 Claude Code 的状态栏坏掉，
+  这一步要写得非常清楚。
+- **会话空闲时不更新。** 只在有事件时跑，Claude 闲着的时候数字停在最后一条回复那一刻。
+  5h 的倒计时由我们自己按 `resets_at` 算，不受影响。
+- **桥接脚本必须快、必须把原来的状态栏原样转出去。** 新一次触发会取消还在跑的那次，所以要先把读数原子地写进插件状态目录，
+  再 `exec` 用户原来的命令，让它的输出原样出去；原来没有命令就什么都不输出。
+- 只对 Claude 有用，以后接别的 agent 要各找各的数据源。
+
+**建议的做法**（等你点头再做）：
+
+- 桥接脚本约 30 行，写 `<状态目录>/statusline/<session_id>.json`，然后 `exec` 原命令。
+- 读数顺序照主会话说的：
+  1. 桥接数据：同一会话、而且新鲜的
+  2. `.claude.json` 缓存
+  3. 「?」
+
+  `live_usage` 仍要显式打开。
+- README 分两种情况写：已经有 statusLine 的人，把原命令包一层；没有的人，先提醒会多一行空白再决定接不接。
+- 验证：拿官方文档里的示例 JSON 喂桥接脚本，看读数写对、原命令的输出一字不差；
+  再在隔离的 herdr 里接上一个假 Claude 的 statusLine 跑一遍。
+
+**要你定**：你自己这台接不接？接就多一行空白，不接就 5h / 7d 保持「?」，或者打开 `live_usage`。
+不管接不接，桥接都可以做成插件的可选功能，给已经有 statusLine 的用户用。
+
 ## 遗留问题和风险
 
 - **从 GitHub 真装一次还没测**（第 3 条）。干净环境里已经抓到过一个只有新用户才会遇到的 bug，正式装可能还有。
