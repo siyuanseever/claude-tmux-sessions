@@ -1,12 +1,13 @@
 ---
 title: I run a dozen Claude Code sessions at once. This tmux console tells me which one needs me
-published: false
+published: true
 tags: claude, tmux, productivity, opensource
-cover_image: https://raw.githubusercontent.com/threedaycat/claude-tmux-sessions/main/docs/img/en/screen.png
+cover_image: https://raw.githubusercontent.com/threedaycat/claude-tmux-sessions/main/docs/promo/devto-cover.png
 ---
 
-<!-- Draft for an English platform (front matter is dev.to's format). Images point at the repository's main branch,
-     so they render wherever this is pasted. Not published yet: see GUIDE.zh-CN.md. -->
+<!-- Published on dev.to 2026-10-25: https://dev.to/threedaycat/i-run-a-dozen-claude-code-sessions-at-once-this-tmux-console-tells-me-which-one-needs-me-a32
+     What was pasted: this body with hard line breaks joined; cover = docs/promo/devto-cover.png; AI disclosure "Some AI (AI-assisted)".
+     Images point at the repository's main branch, so they render wherever this is pasted. -->
 
 ![15 seconds: status bar → picker → jump to the session waiting on you → switch account from the sidebar](https://raw.githubusercontent.com/threedaycat/claude-tmux-sessions/main/docs/img/en/demo.gif)
 

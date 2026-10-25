@@ -214,12 +214,16 @@ git 和文件按钮打开的工具、点底栏状态弹出选择器的逻辑；�
 - 所有截图挪进 `docs/img/`，由 `docs/demo/shots.sh`、`gif.sh` 从真代码生成；旧图删掉。推广材料挪进 `docs/promo/`。
 - 英文界面：`./install.sh --lang en|zh`，存在 `~/.config/claude-tmux/lang`，`CLAUDE_TMUX_LANG` 可覆盖；不写按系统语言，
   老用户没重装就还是中文。
-- 英文文章草稿 `article.en.md`，建议先发 dev.to（长文、图、Markdown 跟知乎最像），之后去 r/ClaudeAI / HN 贴链接。
-  **没发**，等作者看原文、说「发」。
+- 英文文章 `article.en.md` 发在 dev.to（长文、图、Markdown 跟知乎最像），之后可以去 r/ClaudeAI / HN 贴链接。
+  2026-10-25 作者看过原文说「发」后发布（账号 threedaycat，AI 声明选「Some AI / AI-assisted」，作者定的）：
+  https://dev.to/threedaycat/i-run-a-dozen-claude-code-sessions-at-once-this-tmux-console-tells-me-which-one-needs-me-a32
+  封面：起初用整屏截图，dev.to 按 1000×420 裁中间，只剩侧栏（作者指出「看不到 Claude Code，也看不到底部的 tmux 栏」）；
+  换成按这个比例专门截的 `devto-cover.png`（`COLS=176 ROWS=30 CLAUDE_TMUX_LANG=en docs/demo/shots.sh <目录>` 的
+  click-done.png，缩到 2000×840），作者在两张里选的。
 
 遗留：
 
-- 知乎线上那篇还写着「还可以挂一条红色告警」并配了旧告警图，跟现在的行为不符；仓库里的 `zhihu.md` 已改。
-  要不要去知乎更新，作者定。
+- 知乎线上那篇「还可以挂一条红色告警」那段：作者说「改」，2026-10-25 换成 `zhihu.md` 里的新说法、删掉旧告警图和图注后点「更新」；
+  公开页核对过：新段落在，「红色告警」和旧图注都没了，配图 7 张变 6 张。
 - 小红书第 4 张图（`xhs/04.png`）也是旧告警的说法；`build.py` 的文字已改，图没重出、笔记没动。
 
