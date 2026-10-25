@@ -43,6 +43,9 @@
 Anything global lives in the status bar; anything about the current session lives in the sidebar.
 States come from Claude Code hooks, not polling.
 
+Running Claude Code in [herdr](https://herdr.dev) instead of tmux? The same sidebar is a herdr plugin there:
+[statetrail](https://github.com/siyuanseever/statetrail).
+
 <p align="center">
   <img src="docs/img/en/screen.png" alt="The whole screen: Claude working on the left, the sidebar with turns and quota on the right, status counts and the window list at the bottom" width="960">
 </p>

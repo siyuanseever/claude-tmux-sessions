@@ -40,6 +40,9 @@
 
 跟全局有关的放底栏,只跟当前这个会话有关的放侧栏。状态靠 Claude Code 的 hooks 上报,不轮询。
 
+不用 tmux、在 [herdr](https://herdr.dev) 里跑 Claude Code?同样的侧栏在那边是一个 herdr 插件:
+[statetrail](https://github.com/siyuanseever/statetrail)。
+
 <p align="center">
   <img src="docs/img/screen.png" alt="整屏:左边 Claude 在干活,右边侧栏列出每一轮和额度,底栏是状态计数和窗口列表" width="960">
 </p>
