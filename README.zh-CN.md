@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="tmux + bash + python3" src="https://img.shields.io/badge/tmux%20%2B%20bash%20%2B%20python3-no%20daemon-1f425f.svg">
+  <img alt="tmux + bash + python3" src="https://img.shields.io/badge/tmux%20%2B%20bash%20%2B%20python3-1f425f.svg">
   <img alt="Claude Code hooks" src="https://img.shields.io/badge/Claude%20Code-hooks-D97757.svg">
 </p>
 
@@ -20,33 +20,29 @@
 </p>
 
 <p align="center">
-  <img src="docs/picker.png" alt="picker:五个 session 里追踪着 22 个 pane,收起后只剩 9 个要你处理的,其中一个卡在权限确认上,右侧是高亮 pane 的实时画面" width="960">
+  <img src="docs/img/demo.gif" alt="演示:底栏 → 选择器 → 跳到在等你的会话 → 在侧栏上换账号" width="960">
 </p>
 
-<p align="center">
-  <sub><code>prefix + g</code> —— 追踪着 22 个 pane,收起后只剩 9 个要你处理的。
-  由真实脚本渲染,数据是演示 fixture,见 <a href="docs/demo/">docs/demo</a>。</sub>
-</p>
+<p align="center"><sub>15 秒看完整套:底栏、选择器、跳到在等你的那个会话、在侧栏上换账号。由真实脚本在演示数据上渲染,见 <a href="docs/demo/">docs/demo</a>。</sub></p>
 
-每一行都有编号 —— 按 `5`,直接落到第 5 行。光标默认停在你当前所在的那个 pane,右侧则是
-**光标所在 pane 的实时画面**,随光标移动。
+> 这是我整套 Claude Code 工作台里的一块。语音输入(怎么纠错、大模型怎么校对、Claude 怎么帮我维护词表)和
+> 本机 Web 面板(用量、配置)写在 **[docs/workbench.zh-CN.md](docs/workbench.zh-CN.md)**,每块都有截图。
 
-## 四块东西
+## 五块东西
 
 | | 管什么 | 在哪儿 |
 |---|---|---|
 | **底栏** | 所有会话的状态:谁在等你(`⏸`)、谁做完了你还没看(`✔`)、谁在跑(`▶`);右边是整机 CPU / 内存 / 交换 / 磁盘 | tmux 状态栏,任何窗口都看得到,每段都能点 |
 | **选择器** | 所有会话一览,按 session 分组,带实时预览,输编号就跳 | `prefix + g`,或点底栏左边 |
-| **侧栏** | **这一个**会话:它说过的每一轮(点一下主界面滚过去)、上下文和 5 小时 / 7 天额度、它目录里没提交的文件数、git / 文件弹窗、换账号 | 贴在每个 Claude 右边,窗口够宽时自动打开 |
+| **侧栏** | **这一个**会话:它说过的每一轮(点一下主界面滚过去)、上下文和 5 小时 / 7 天额度、它目录里没提交的文件数 | 贴在每个 Claude 右边,窗口够宽时自动打开 |
+| **git / 文件浮窗** | 在这个 Claude 的目录里浮出 lazygit 或 yazi,看改动、看文件,点外面就关 | 侧栏上的按钮 |
 | **换账号** | 把这个会话换到另一个 Claude 账号,接着原来的对话聊;在干活的、输入框里有没发的字的不动,带队员的先收队 | 侧栏上的 ⇄ |
 
 跟全局有关的放底栏,只跟当前这个会话有关的放侧栏。状态靠 Claude Code 的 hooks 上报,不轮询。
 
 <p align="center">
-  <img src="docs/demo.gif" alt="demo" width="960">
+  <img src="docs/img/screen.png" alt="整屏:左边 Claude 在干活,右边侧栏列出每一轮和额度,底栏是状态计数和窗口列表" width="960">
 </p>
-
-<p align="center"><sub>15 秒看完整套:底栏、选择器、跳到在等你的那个会话、在侧栏上换账号。由真实脚本在演示数据上渲染,见 <a href="docs/demo/">docs/demo</a>。</sub></p>
 
 
 ---
@@ -60,7 +56,8 @@
 这个工具把那个状态变成**环境信息**:每个 pane 通过 Claude Code hooks 自己上报状态,状态栏
 在任何窗口都能看到全局,一个键唤出 picker 直接跳到该去的 pane。
 
-没有常驻进程,也不轮询 —— hooks 只在状态真的变化时才触发,picker 只读一个很小的 JSON。
+状态不靠轮询 —— hooks 只在状态真的变化时才触发,picker 只读一个很小的 JSON。唯一的常驻进程是侧栏的
+(macOS 上由 launchd 管),它只读对话记录新追加的行。
 
 ## 四个状态,靠形状分辨
 
@@ -75,9 +72,9 @@
 
 ## 你会得到什么
 
-- **一条不会自己消失的 WAIT 告警。** 有 pane 被卡住,tmux 状态栏就挂一条红底白字的
-  `⏸ WAIT`(带窗口名和已等时长),而且**每次刷新都重画,直到你去处理掉它**。另外还有一次性
-  的闪屏、提示音和 macOS 通知 —— 三条通道,因为任何单独一条都可能漏掉你。
+- **不会自己消失的 WAIT。** 有 pane 卡在权限确认上,底栏的 `⏸` 计数变红,窗口列表里那个窗口
+  那一格也变红,**直到你去处理掉它**;点 `⏸` 直接跳到等得最久的那个。另外还有一次性的闪屏、
+  提示音和 macOS 通知 —— 几条通道,因为任何单独一条都可能漏掉你。
 - **一个键到该去的 pane。** `prefix + g` 唤出所有被追踪 pane 的 `fzf` 列表,按 session
   分组,带跟随光标的实时预览,`Enter` 跳转。或者干脆跳过界面:`prefix + a` 直接送你到最该
   被处理的那个 pane。
@@ -104,9 +101,9 @@
 
 ## 装之前先知道这几件事
 
-- **界面是中文的。** 所有用户可见的字符串(`等确认`、`已运行`、`完成`)目前都是硬编码中文,
-  因为作者自己看中文 —— 你在读这一版,那大概正合适。布局、图标和配色是语言中立的,代码也
-  很直白,英文 / i18n 那一版不难做,[欢迎 issue 和 PR](../../issues)。
+- **界面有中文和英文两套。** 装的时候用 `./install.sh --lang zh` 或 `--lang en` 选;不写就按系统语言。
+  选的结果存在 `~/.config/claude-tmux/lang`。想换就重跑一次 `./install.sh --lang …`:它会顺带重启侧栏的常驻进程
+  (那个进程只在启动时读一次语言)。环境变量 `CLAUDE_TMUX_LANG` 也能覆盖,但要设在 tmux server 的环境里才管得到按键起的脚本。
 - **在 macOS 上开发、日常使用。** macOS 特有的部分只有两处:系统通知
   (`terminal-notifier`/`osascript`)和提示音(`afplay`)。其余全是纯 tmux + bash +
   python3,在 Linux 上*应该*能跑(那两个调用会静默失败),但那条路**没有测过**,所以请把
@@ -115,9 +112,11 @@
   别勾「非 ASCII 字符用另一个字体」,否则图标会被交给不含图标的字体去画,显示成问号。
 - **有几处靠读屏幕。** 状态本身靠 hooks,但侧栏「跳到第几轮」、换账号时认输入框,只能读 Claude Code
   的屏幕文字。Claude Code 改版时这几处可能要跟着改。
-- **它会改你的 Claude Code 配置。** `install.sh` 会把五个脚本软链到 `~/.claude/hooks/`,
-  并把四条 hook 合并进 `~/.claude/settings.json`(保留里面已有的内容)。想手动来的话先读
-  `install.sh` —— 一百行左右,没有任何花活。卸载方法在下面。
+- **它会改你的 Claude Code 配置。** `install.sh` 会把十几个脚本软链到 `~/.claude/hooks/`,
+  把 hooks(`UserPromptSubmit`、`Stop`、`Notification`、`PostToolUse`、`SessionStart`、`SessionEnd`、
+  `SubagentStart`、`SubagentStop`)合并进 `~/.claude/settings.json`(保留里面已有的内容),
+  在 macOS 上再装一个侧栏的 launchd 服务。想手动来的话先读 `install.sh` —— 一百五十行左右,
+  没有任何花活。卸载方法在下面。
 
 ## 安装
 
@@ -150,9 +149,10 @@ source-file ~/projects/claude-tmux-sessions/tmux/claude-tmux.conf
 **2. 底栏** —— 把这几段拼进你的 `status-left` / `status-right`:
 
 ```tmux
-#(~/.claude/hooks/status-badge.sh)          # 状态计数 ⏸ ✔ ▶ ✓,能点
-#(~/.claude/hooks/float-tool.sh --buttons)  # 开关侧栏的按钮
-#(~/.claude/hooks/tmux-sysstat.sh)          # 整机 CPU / 内存 / 交换 / 磁盘,能点
+#(~/.claude/hooks/status-badge.sh states '' '#S')  # 状态计数 ⏸ ✔ ▶ ✓(只数当前 session),能点
+#(~/.claude/hooks/float-tool.sh --buttons)         # 开关侧栏的按钮
+#(~/.claude/hooks/tmux-sysstat.sh)                 # 整机 CPU / 内存 / 交换 / 磁盘,能点
+#(~/.claude/hooks/status-badge.sh quota)           # (可选)5 小时 / 7 天额度,侧栏上已经有了
 ```
 
 **3. 换账号**(可选) —— 写 `~/.config/claude-tmux/accounts.json`,列出你的几个账号和各自的
@@ -166,10 +166,11 @@ source-file ~/projects/claude-tmux-sessions/tmux/claude-tmux.conf
 然后 `tmux source-file ~/.tmux.conf` 重载,在任意一个**已经在跑的** Claude Code session 里执行一次
 `/hooks`,让它读到新配置 —— 之后新起的 session 会自动带上。
 
-渲染出来是额度条、仅在有东西被卡住时才出现的 WAIT badge,然后是完成未读数和运行中的计数:
+渲染出来是这样:左边是 session 名和四个计数(数到 0 也只是变灰,位置不动),接着是开关侧栏的按钮和
+窗口列表,右边是整机资源:
 
 <p align="center">
-  <img src="docs/statusbar.png" alt="状态栏片段:5 小时额度条 32%、deploy-script 的红色 WAIT badge(已等 12 秒)、然后是 5 个完成未读和 3 个运行中" width="700">
+  <img src="docs/img/statusbar.png" alt="底栏:session 名、⏸ 1 ✔ 2 ▶ 1 ✓ 2 四个计数、侧栏按钮、窗口列表(每个窗口带自己的状态)、右边 CPU / 内存 / 交换 / 磁盘" width="960">
 </p>
 
 这一条是**总数**:它告诉你有几个在等你,但不告诉你是哪个窗口。想让每个窗口自己说话,把
@@ -259,13 +260,17 @@ python3 -c 'import json;print(json.dumps(json.load(open("'"$HOME"'/.claude/tmux-
 launchctl bootout gui/$(id -u)/com.claude-tmux.sidebar; rm -f ~/Library/LaunchAgents/com.claude-tmux.sidebar.plist
 rm ~/.claude/hooks/{tmux_status_update.py,claude-tmux-picker.sh,jump-top.sh,status-badge.sh,restore-claude.sh,resurrect_hooks.py,float-picker.sh,usage-refresh.py,status-click.sh,float-tool.sh,tmux-sysstat.sh,sys-monitor.py,ctx_to_tmux.py}
 rm -f ~/.claude/tmux-claude-status.json ~/.claude/tmux-claude-restore.json ~/.claude/tmux-quota-cache.json
-rm -rf ~/.local/state/claude-trail
+rm -rf ~/.local/state/claude-trail; rm -f ~/.config/claude-tmux/lang
 ```
 
 然后从 `~/.claude/settings.json` 里删掉 `tmux_status_update.py` 和 `ctx_to_tmux.py` 的 hook,再把 tmux
 配置里那行 `source-file …/claude-tmux.conf` 和底栏拼进去的几段去掉。
 
 ## picker 怎么用
+
+<p align="center">
+  <img src="docs/img/picker.png" alt="picker:五个 session、二十多个 pane,收起后只剩要你处理的,其中一个卡在权限确认上,右侧是高亮 pane 的实时画面" width="960">
+</p>
 
 - `j` / `k`(或 ↑ / ↓)在 pane 之间移动 —— session 标题行会被跳过,所以每一停都是一个真实的
   Claude pane,预览跟着走。
@@ -300,26 +305,31 @@ rm -rf ~/.local/state/claude-trail
   "谁在哪个编队",`l` 回答"这一个编队里都有谁"。见下。
 - `Enter` 跳转 · `ctrl-x` 归档当前高亮的 pane · `q` / `Esc` 关闭。
 
-### 只用鼠标:点状态栏打开 picker
+### 只用鼠标:点底栏
 
-tmux 3.7+ 下,picker 可以作为**浮动 pane** 贴着窗口底部弹出,有几行就多高,**点外面任何地方就关**
+tmux 3.7+ 下,picker 作为**浮动 pane** 贴着窗口底部弹出,有几行就多高,**点外面任何地方就关**
 (`bin/float-picker.sh`)。`display-popup` 做不到最后这点 —— 浮窗外的点击 tmux 直接丢掉 —— 而浮动
-pane 是真 pane,焦点一走就能关掉它。状态栏上的几段就成了按钮:
+pane 是真 pane,焦点一走就能关掉它。底栏上的每一段都是按钮(绑定在 `tmux/claude-tmux.conf` 里):
 
-    # 点 session 名 → 完整 picker,左下角
-    bind -n MouseDown1StatusLeft run-shell 'CLAUDE_TMUX_USAGE_FOOTER=0 ~/.claude/hooks/float-picker.sh #{pane_id}'
-    # 点 status-badge 的某一段 → 见 bin/status-click.sh
-    bind -n MouseDown1Status if -F '#{==:#{mouse_status_range},window}' { switch-client -t = } { run-shell '~/.claude/hooks/status-click.sh "#{mouse_status_range}" "#{pane_id}" "#{client_name}"' }
+| 点哪儿 | 发生什么 | 背后 |
+|---|---|---|
+| session 名 | 浮出 picker,按 session 看(光标停在 session 那一层,预览是每个会话一张卡片) | `float-picker.sh` |
+| `⏸ 1` | 直接跳到等得最久的那个 Claude | `status-click.sh` → `jump-top.sh` |
+| `✔ 2` / `▶ 1` / `✓ 2` | 只列这一类的 picker(不折叠);这一类只有一个时不弹框,直接跳过去 | `status-click.sh` → `float-picker.sh` |
+| 侧栏按钮 | 开关当前 Claude 的侧栏 | `float-tool.sh` |
+| CPU / 内存 / 交换 / 磁盘 | 右下角浮出那一项的明细:谁在吃 CPU、内存,哪些目录最占磁盘 | `float-tool.sh` → `sys-monitor.py` |
+| `5h` / `7d`(放了 quota 那一段的话) | 马上刷新真实的 5 小时 / 7 天用量,弹一张卡片:用了多少、还有多久重置 | `status-click.sh` → `usage-refresh.py` |
+| 窗口名 | 切到那个窗口 | tmux 自己的 |
 
-| 那一段 | 点了 |
-|---|---|
-| `5h▂▃ 7d▁█` | 马上刷新真实的 5 小时 / 7 天用量(进行中显示 `⟳`),查完弹一张卡片:用了多少、还有多久重置 |
-| `⏸︎ <窗口名>` | 跳到那个在等你确认的 Claude |
-| `✔︎ 4` / `▶︎ 1` / `✓︎ 8` | 只列这一类的 picker(不折叠) |
+再点同一个就关掉,点另一个就换过去。下图是点了 `✔ 2`:
 
-再点同一个就关掉,点另一个就换过去。picker 提示栏里能点的词画成灰底按钮;在浮窗里切 `全部` 会按新高度重开浮窗(tmux 只能把浮动 pane 往下拉长)。
+<p align="center">
+  <img src="docs/img/click-done.png" alt="点了 ✔ 之后:底部浮出只列「做完没看」的 picker,右边是光标所在会话的实时画面" width="960">
+</p>
 
-每个窗口两格,画法一样、方向一样,所以两根的高度可以直接比:第一格是用量,黄色,从下往上长
+picker 提示栏里能点的词画成灰底按钮;在浮窗里切 `全部` 会按新高度重开浮窗(tmux 只能把浮动 pane 往下拉长)。
+
+额度那一段(`status-badge.sh quota`):5h、7d 各画两格,画法一样、方向一样,所以两根的高度可以直接比:第一格是用量,黄色,从下往上长
 (▁ → █);第二格是这个窗口已经走过了多少,蓝色同样从下往上长 —— 刚开窗是 ▁,
 快重置是 █。两格都带灰色底槽,柱子没长到的那截露出灰色,就是离 100% 还剩多少。用量柱比时间柱高,就是烧得比匀速用到重置更快。`status-badge.sh states` / `status-badge.sh quota` 分别只出一半,
 所以 Claude 状态可以放在左边 session 名后面、额度放最右。点额度会立刻弹出卡片,先显示上一次的数据、它的时间和「⟳ 刷新中」,请求回来(约 2 秒)后卡片换成新数字;这之前已经关掉的就不再弹。20 秒内重复点额度只会再弹卡片,不会再发请求。`bin/usage-refresh.py` 调的是 `/usage` 用的同一个接口,
@@ -377,6 +387,39 @@ Claude pane 挤在同一个 window 里时两者不同 —— window 标题是它
 它只读 Claude Code 自己写在 `~/.claude/projects/` 里的对话记录;对主界面只发滚动用的按键,
 不碰输入框。一个常驻进程管所有侧栏,对话记录只读新追加的行。细节见 [`sidebar/README.md`](sidebar/README.md)。
 
+<p align="center">
+  <img src="docs/img/sidebar.png" alt="侧栏:表头是按钮和三条额度,下面每一轮一项,最后一轮高亮" width="560">
+</p>
+
+## git 和文件浮窗
+
+点侧栏上的 git 或文件按钮,在这个 Claude 的目录里浮出一个工具(`bin/float-tool.sh`),**贴右边、占 60% 宽**,
+左边的 Claude 不动、不重新换行。点浮窗外面就关;再点同一个按钮也关;点另一个就换过去。
+宽度存在 `~/.local/state/float-tool-width`,改数字就行(30–95)。
+
+- **git 用 [lazygit](https://github.com/jesseduffield/lazygit)**(`brew install lazygit`):看 Claude 改了哪些文件、
+  逐行 diff、提交,全程能用鼠标。当前目录不是仓库时(比如 `~/work`,下面一堆仓库),先列出下面三层的仓库,
+  最近动过的在上面,点一个打开。
+- **文件用 [yazi](https://github.com/sxyazi/yazi)**(`brew install yazi`):单击选中、滚轮翻页、右边直接预览。
+  浮窗里只看不改 —— 点外面就关,在里面开编辑器会连同没存的改动一起丢。所以「打开」文本文件交给
+  `float-tool.sh --edit`:在同一个 session 新开一个 tmux 窗口跑 `$EDITOR`,浮窗随即关掉。要这个行为,
+  在 `~/.config/yazi/yazi.toml` 里加:
+
+  ```toml
+  [opener]
+  edit = [
+    { run = '~/.claude/hooks/float-tool.sh --edit %s', desc = "编辑器（新 tmux 窗口）", orphan = true, for = "unix" },
+  ]
+  ```
+
+<p align="center">
+  <img src="docs/img/git.png" alt="git 浮窗:右边浮出 lazygit,显示改动的文件和 diff,左边 Claude 照常显示" width="960">
+</p>
+
+<p align="center">
+  <img src="docs/img/files.png" alt="文件浮窗:右边浮出 yazi,三栏是上级目录、当前目录和预览" width="960">
+</p>
+
 ## 换账号
 
 单个账号有 5 小时 / 7 天用量上限。点侧栏的 ⇄,这个会话退出、用另一个账号 `claude --resume`
@@ -392,12 +435,12 @@ Claude pane 挤在同一个 window 里时两者不同 —— window 标题是它
 ## 为什么不直接……
 
 - **……给 tmux 窗口起个名?** Claude Code 已经在驱动你的窗口标题了(带个转圈的 spinner),
-  所以你能看出*有东西*在跑 —— 但看不出它是不是卡在等你,而且还是得逐个窗口看。WAIT 告警
-  正是窗口名做不到的那部分。
+  所以你能看出*有东西*在跑 —— 但看不出它是不是卡在等你,而且还是得逐个窗口看。`⏸` 正是窗口名
+  做不到的那部分。
 - **……用 Claude Code 自己的 session 列表?** 它是 per-instance 的,而且列的是 session,
   不是*它们住在 tmux 的哪里*。这个工具是反方向的:以 pane 为主,所以"跳过去"是一个键。
 - **……就等系统通知?** macOS 通知是瞬时的,你在别的 App 或别的 Space 里就很容易漏掉。这恰恰
-  是这里的告警被刻意做成常驻状态栏 badge 的原因 —— 它只在你真的去处理之后才消失。
+  是这里的 `⏸` 被刻意做成常驻在底栏的原因 —— 它只在你真的去处理之后才消失。
 
 ## 它是怎么工作的
 

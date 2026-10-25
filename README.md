@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="tmux + bash + python3" src="https://img.shields.io/badge/tmux%20%2B%20bash%20%2B%20python3-no%20daemon-1f425f.svg">
+  <img alt="tmux + bash + python3" src="https://img.shields.io/badge/tmux%20%2B%20bash%20%2B%20python3-1f425f.svg">
   <img alt="Claude Code hooks" src="https://img.shields.io/badge/Claude%20Code-hooks-D97757.svg">
 </p>
 
@@ -21,36 +21,31 @@
 </p>
 
 <p align="center">
-  <img src="docs/picker.png" alt="The picker: 22 tracked panes across five sessions, collapsed to the nine that want attention, one of them blocked on a permission prompt, with a live preview of the highlighted pane" width="960">
+  <img src="docs/img/en/demo.gif" alt="Demo: status bar → picker → jump to the session waiting on you → switch account from the sidebar" width="960">
 </p>
 
-<p align="center">
-  <sub><code>prefix + g</code> — 22 tracked panes, collapsed to the nine that
-  want you. Rendered by the real scripts against a demo fixture, see
-  <a href="docs/demo/">docs/demo</a>.</sub>
-</p>
+<p align="center"><sub>The whole toolkit in 15 seconds: status bar, picker, jumping to the session that waits for you, and switching accounts from the sidebar. Rendered by the real scripts on demo data — <a href="docs/demo/">docs/demo</a>.</sub></p>
 
-Every row is numbered — press `5`, land on pane 5. The cursor starts on the pane
-you're already in, and the right-hand pane shows a **live capture of that
-Claude's screen** as you move.
+> This is one piece of my Claude Code workbench. Voice input (how it corrects itself, how an LLM proofreads,
+> how Claude maintains the vocabulary for me) and a local web dashboard (usage, configuration) are written up
+> in **[docs/workbench.md](docs/workbench.md)**, with screenshots of every part.
 
-## The four pieces
+## The five pieces
 
 | | What it covers | Where |
 |---|---|---|
 | **Status bar** | Every session's state: who's waiting on you (`⏸`), who finished and you haven't looked (`✔`), who's running (`▶`); on the right, machine CPU / memory / swap / disk | tmux status line, visible from any window, every segment clickable |
 | **Picker** | All sessions at a glance, grouped by tmux session, live preview, type a number to jump | `prefix + g`, or click the left end of the status bar |
-| **Sidebar** | **This** session: every turn it took (click one and the main pane scrolls there), context and 5h / 7d quota, uncommitted-file count, git / file pop-ups, account switch | docked to the right of each Claude, opens automatically when the window is wide enough |
+| **Sidebar** | **This** session: every turn it took (click one and the main pane scrolls there), context and 5h / 7d quota, uncommitted-file count | docked to the right of each Claude, opens automatically when the window is wide enough |
+| **git / file pop-ups** | lazygit or yazi floating over the right of the window, in this Claude's directory; click outside to close | buttons on the sidebar |
 | **Account switch** | Move this session to another Claude account and keep the same conversation; refuses if it's busy or you have an unsent draft, and asks the lead to wind down its team first | the ⇄ button on the sidebar |
 
 Anything global lives in the status bar; anything about the current session lives in the sidebar.
 States come from Claude Code hooks, not polling.
 
 <p align="center">
-  <img src="docs/demo.gif" alt="demo" width="960">
+  <img src="docs/img/en/screen.png" alt="The whole screen: Claude working on the left, the sidebar with turns and quota on the right, status counts and the window list at the bottom" width="960">
 </p>
-
-<p align="center"><sub>The whole toolkit in 15 seconds: status bar, picker, jumping to the session that waits for you, and switching accounts from the sidebar. Rendered by the real scripts on demo data — <a href="docs/demo/">docs/demo</a>.</sub></p>
 
 
 ---
@@ -67,8 +62,9 @@ This makes that state **ambient**: panes report their own status via Claude Code
 hooks, your status line shows the whole picture from any window, and one key
 opens a picker that jumps you to the right pane.
 
-There's no daemon and no polling — the hooks fire only when something actually
-changes, and the picker reads one small JSON file.
+Nothing polls — the hooks fire only when something actually changes, and the picker reads one
+small JSON file. The one long-running process is the sidebar's (kept alive by launchd on macOS),
+and it only reads newly appended transcript lines.
 
 ## Four states, read by shape
 
@@ -84,11 +80,10 @@ means you can read the list without relying on it.
 
 ## What you get
 
-- **A WAIT alarm that won't vanish on you.** A blocked pane paints a white-on-red
-  `⏸ WAIT` badge — window name, how long it's been waiting — into your tmux
-  status line, and it **re-renders until you deal with it**. Plus a one-shot
-  flash, a sound, and a macOS notification. Three channels, because any one of
-  them can miss you.
+- **A WAIT that won't vanish on you.** When a pane is blocked on a permission prompt, the `⏸`
+  count in the status bar turns red, and so does that window's cell in the window list, **until
+  you deal with it**; click `⏸` to jump to the one that has waited longest. Plus a one-shot flash,
+  a sound, and a macOS notification — several channels, because any one of them can miss you.
 - **One key to the right pane.** `prefix + g` opens an `fzf` list of every
   tracked pane, grouped by session, with a live preview that follows the cursor.
   `Enter` jumps. Or skip the UI entirely: `prefix + a` goes straight to whichever
@@ -124,12 +119,11 @@ means you can read the list without relying on it.
 
 ## Heads up before you install
 
-- **The UI is in Chinese.** All user-facing strings (`等确认` = waiting for your
-  confirmation, `已运行` = running for, `完成` = done) are currently hardcoded
-  Chinese, because that's what the author reads. The layout, icons and colours
-  are language-neutral and the code is plain, so an English/i18n pass is very
-  doable — [issues and PRs welcome](../../issues). Filing this here rather than
-  letting you discover it after install.
+- **English or Chinese UI.** Pick one at install time with `./install.sh --lang en` (or `--lang zh`);
+  without the flag it follows your system language. The choice is stored in
+  `~/.config/claude-tmux/lang`. To change it, run `./install.sh --lang …` again: that also restarts the sidebar
+  daemon, which reads the language once at start. `CLAUDE_TMUX_LANG` overrides it too, but only reaches scripts
+  started by key bindings if it is set in the tmux server's environment.
 - **Developed and used daily on macOS.** The macOS-specific parts are isolated to
   two things: the system notification (`terminal-notifier`/`osascript`) and the
   alert sound (`afplay`). Everything else is plain tmux + bash + python3 and
@@ -142,11 +136,12 @@ means you can read the list without relying on it.
 - **A few spots read the screen.** States come from hooks, but the sidebar's "jump to turn N" and
   the account switch's draft check have to read Claude Code's screen text, so a Claude Code UI
   change may need a matching fix there.
-- **It writes to your Claude Code config.** `install.sh` symlinks five scripts
-  into `~/.claude/hooks/` and merges four hook entries into
-  `~/.claude/settings.json`, preserving whatever's already there. If you'd
-  rather do that by hand, read `install.sh` first — it's ~100 lines and does
-  nothing clever. Uninstall instructions are below.
+- **It writes to your Claude Code config.** `install.sh` symlinks a dozen-odd scripts into
+  `~/.claude/hooks/`, merges hooks (`UserPromptSubmit`, `Stop`, `Notification`, `PostToolUse`,
+  `SessionStart`, `SessionEnd`, `SubagentStart`, `SubagentStop`) into `~/.claude/settings.json`,
+  preserving whatever's already there, and on macOS installs a launchd service for the sidebar.
+  If you'd rather do that by hand, read `install.sh` first — it's ~150 lines and does nothing
+  clever. Uninstall instructions are below.
 
 ## Install
 
@@ -180,9 +175,10 @@ seen when you focus it. Want other keys? Copy [`tmux/claude-tmux.conf`](tmux/cla
 **2. Status bar** — splice these into your `status-left` / `status-right`:
 
 ```tmux
-#(~/.claude/hooks/status-badge.sh)          # state counts ⏸ ✔ ▶ ✓, clickable
-#(~/.claude/hooks/float-tool.sh --buttons)  # sidebar toggle
-#(~/.claude/hooks/tmux-sysstat.sh)          # CPU / memory / swap / disk, clickable
+#(~/.claude/hooks/status-badge.sh states '' '#S')  # state counts ⏸ ✔ ▶ ✓ (this session only), clickable
+#(~/.claude/hooks/float-tool.sh --buttons)         # sidebar toggle
+#(~/.claude/hooks/tmux-sysstat.sh)                 # CPU / memory / swap / disk, clickable
+#(~/.claude/hooks/status-badge.sh quota)           # (optional) 5h / 7d quota; the sidebar has it already
 ```
 
 **3. Account switching** (optional) — list your accounts and their `CLAUDE_CONFIG_DIR` in
@@ -197,11 +193,11 @@ Reload with `tmux source-file ~/.tmux.conf`, then run `/hooks` once in any
 **already-running** Claude Code session so it picks up the new config — freshly
 started sessions get it automatically.
 
-which renders the quota bar, a WAIT badge only while something's blocked, then
-counts of unread-done and running:
+which renders like this: the session name and the four counts on the left (a zero turns grey but
+keeps its place), then the sidebar button and the window list, machine resources on the right:
 
 <p align="center">
-  <img src="docs/statusbar.png" alt="Status line segment: 5h quota bar at 32%, a red WAIT badge for deploy-script waiting 12s, then 5 done-unread and 3 running" width="700">
+  <img src="docs/img/en/statusbar.png" alt="Status bar: session name, the counts ⏸ 1 ✔ 2 ▶ 1 ✓ 2, the sidebar button, the window list with a state per window, CPU / memory / swap / disk on the right" width="960">
 </p>
 
 That segment is an aggregate — it tells you *how many* are waiting, not *which
@@ -301,7 +297,7 @@ session, and check that `~/.claude/settings.json` lists
 launchctl bootout gui/$(id -u)/com.claude-tmux.sidebar; rm -f ~/Library/LaunchAgents/com.claude-tmux.sidebar.plist
 rm ~/.claude/hooks/{tmux_status_update.py,claude-tmux-picker.sh,jump-top.sh,status-badge.sh,restore-claude.sh,resurrect_hooks.py,float-picker.sh,usage-refresh.py,status-click.sh,float-tool.sh,tmux-sysstat.sh,sys-monitor.py,ctx_to_tmux.py}
 rm -f ~/.claude/tmux-claude-status.json ~/.claude/tmux-claude-restore.json ~/.claude/tmux-quota-cache.json
-rm -rf ~/.local/state/claude-trail
+rm -rf ~/.local/state/claude-trail; rm -f ~/.config/claude-tmux/lang
 ```
 
 Then remove the `tmux_status_update.py` and `ctx_to_tmux.py` hook entries from
@@ -309,6 +305,10 @@ Then remove the `tmux_status_update.py` and `ctx_to_tmux.py` hook entries from
 segments from your tmux config.
 
 ## Using the picker
+
+<p align="center">
+  <img src="docs/img/en/picker.png" alt="The picker: five sessions and twenty-odd panes, folded down to the ones that want you, one of them blocked on a permission prompt, with a live preview of the highlighted pane" width="960">
+</p>
 
 - `j` / `k` (or ↑ / ↓) move between panes — session headers are skipped, so every
   stop is a real Claude pane and the preview follows it.
@@ -362,33 +362,34 @@ segments from your tmux config.
   *who is on which team*, `l` answers *who is on this one*. See below.
 - `Enter` jumps · `ctrl-x` archives the highlighted pane · `q` / `Esc` closes.
 
-### Mouse-only: the status bar opens the picker
+### Mouse-only: click the status bar
 
-With tmux 3.7+ the picker can open as a **floating pane** anchored to the
-bottom of the window, exactly as tall as its rows, and closed by clicking
-anywhere else (`bin/float-picker.sh`). A `display-popup` can't do that last
-part — tmux drops clicks outside a popup — but a floating pane is a real pane,
-so focus leaving it closes it. The status bar's segments become the buttons:
+With tmux 3.7+ the picker opens as a **floating pane** anchored to the bottom of the window,
+exactly as tall as its rows, and closed by clicking anywhere else (`bin/float-picker.sh`). A
+`display-popup` can't do that last part — tmux drops clicks outside a popup — but a floating pane
+is a real pane, so focus leaving it closes it. Every segment of the status bar is a button (the
+bindings are in `tmux/claude-tmux.conf`):
 
-    # click the session name → the full picker, bottom-left
-    bind -n MouseDown1StatusLeft run-shell 'CLAUDE_TMUX_USAGE_FOOTER=0 ~/.claude/hooks/float-picker.sh #{pane_id}'
-    # click a status-badge segment → see bin/status-click.sh
-    bind -n MouseDown1Status if -F '#{==:#{mouse_status_range},window}' { switch-client -t = } { run-shell '~/.claude/hooks/status-click.sh "#{mouse_status_range}" "#{pane_id}" "#{client_name}"' }
+| Click | What happens | Behind it |
+|---|---|---|
+| Session name | The picker in session view (cursor on the session, the preview is a card per pane) | `float-picker.sh` |
+| `⏸ 1` | Jumps straight to the Claude that has waited longest | `status-click.sh` → `jump-top.sh` |
+| `✔ 2` / `▶ 1` / `✓ 2` | The picker with just those panes (never folded); if there's exactly one, it jumps there instead | `status-click.sh` → `float-picker.sh` |
+| Sidebar button | Toggles the sidebar of the current Claude | `float-tool.sh` |
+| CPU / memory / swap / disk | A small pop-up with that item in detail: what uses CPU and memory, which folders take the most disk | `float-tool.sh` → `sys-monitor.py` |
+| `5h` / `7d` (if you added the quota segment) | Refreshes the real 5h / 7d usage now, then a card with the numbers and time to reset | `status-click.sh` → `usage-refresh.py` |
+| Window name | Switches to that window | tmux itself |
 
-What each segment does when clicked:
+Clicking the same thing again closes the float; clicking another swaps it. Here is a click on `✔ 2`:
 
-| segment | click |
-|---|---|
-| `5h▂▃ 7d▁█` | refresh the real 5h / 7d usage now (`⟳` while it runs), then a card with the numbers and time to reset |
-| `⏸︎ <window>` | jump to that waiting Claude |
-| `✔︎ 4` / `▶︎ 1` / `✓︎ 8` | the picker with just those panes (never folded) |
+<p align="center">
+  <img src="docs/img/en/click-done.png" alt="After clicking ✔: a picker with only the done-unread panes floats up from the bottom, with a live view of the highlighted one" width="960">
+</p>
 
-Clicking the same thing again closes the float; clicking another swaps it.
-Clickable words in the picker's header are drawn as grey chips; toggling
-`全部` inside a float reopens it at the new height (tmux only grows a
-floating pane downward).
+Clickable words in the picker's header are drawn as grey chips; expanding everything inside a float
+reopens it at the new height (tmux only grows a floating pane downward).
 
-Each window is two cells, drawn the same way so their heights can be
+The quota segment (`status-badge.sh quota`): 5h and 7d are two cells each, drawn the same way so their heights can be
 compared. The first is usage, in yellow: it grows up from the bottom (▁ → █). The second is how much of the window has elapsed, in blue, growing up
 from the bottom too — ▁ just after it opened, █ about to reset. Both sit on a
 grey track, so the grey left above a bar is how far it is from 100%. Usage taller
@@ -474,6 +475,42 @@ It only reads the transcripts Claude Code already writes under `~/.claude/projec
 sends scroll keys to the main pane — never touches the input box. One daemon serves every sidebar
 and only reads newly appended lines. Details (in Chinese) in [`sidebar/README.md`](sidebar/README.md).
 
+<p align="center">
+  <img src="docs/img/en/sidebar.png" alt="Sidebar: buttons and three quota bars in the header, one item per turn below, the latest highlighted" width="560">
+</p>
+
+## git and file pop-ups
+
+The git and files buttons on the sidebar open a tool in this Claude's directory (`bin/float-tool.sh`),
+**floating on the right at 60 % of the width**; the Claude on the left keeps its size and doesn't
+re-wrap. Click outside to close it, click the same button again to close it, click the other one to
+swap. The width lives in `~/.local/state/float-tool-width` (30–95).
+
+- **git is [lazygit](https://github.com/jesseduffield/lazygit)** (`brew install lazygit`): see which
+  files Claude changed, read the diff, commit — all with the mouse. If the directory isn't a repository
+  (say `~/work`, with many repositories under it), it first lists the repositories up to three levels
+  down, most recently touched first; click one.
+- **Files is [yazi](https://github.com/sxyazi/yazi)** (`brew install yazi`): click to select, scroll to
+  page, a live preview on the right. The pop-up is for looking, not editing — clicking outside closes
+  it, and an editor inside would lose unsaved work. So "open" on a text file goes to
+  `float-tool.sh --edit`, which runs `$EDITOR` in a new tmux window in the same session and closes the
+  pop-up. For that, add to `~/.config/yazi/yazi.toml`:
+
+  ```toml
+  [opener]
+  edit = [
+    { run = '~/.claude/hooks/float-tool.sh --edit %s', desc = "Editor (new tmux window)", orphan = true, for = "unix" },
+  ]
+  ```
+
+<p align="center">
+  <img src="docs/img/en/git.png" alt="git pop-up: lazygit on the right with changed files and a diff, Claude unchanged on the left" width="960">
+</p>
+
+<p align="center">
+  <img src="docs/img/en/files.png" alt="Files pop-up: yazi on the right with parent folder, current folder and preview" width="960">
+</p>
+
 ## Account switching
 
 A single account has 5h / 7d usage caps. Click ⇄ on the sidebar and the session exits and
@@ -493,15 +530,14 @@ message line. CLI: `bin/switch_account.py --to <account> --pane %3 [--dry-run]`.
 
 - **…name my tmux windows?** Claude Code already drives your window titles with a
   spinner, so you can see *that* something's running — but not whether it's
-  blocked on you, and not without looking at every window. The WAIT alarm is the
+  blocked on you, and not without looking at every window. `⏸` is the
   part window names can't do.
 - **…use Claude Code's own session list?** It's per-instance and shows sessions,
   not *where they live in tmux*. This is the other direction: pane-first, so
   "jump to it" is one keypress.
 - **…just watch for the notification?** macOS notifications are transient and
   easy to miss when you're in another app or another Space. That's precisely why
-  the alarm here is a persistent status-line badge that only clears when you go
-  deal with it.
+  `⏸` here stays on the status bar and only clears when you go deal with it.
 
 ## How it works
 
