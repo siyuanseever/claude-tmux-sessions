@@ -55,7 +55,9 @@ DEFAULTS = {
     "icons": "nerd",
     "lang": "",                    # "zh" / "en"；不写就按系统 locale
     "tab_names": True,             # 没手动起过名的 tab，用 Claude 的会话名命名（会话名变了跟着改）
-    # 宽版表头第 1 行、窄版底部的按钮：在 Claude 那一格的目录里，用本插件的浮窗跑 command（经 sh -c）。
+    # 自定义按钮，宽版、窄版都放在最底下一行（和上面 Claude 相关的按钮分开）。两种：
+    #   command = "lazygit"                       在 Claude 那一格的目录里，用本插件的浮窗跑它（经 sh -c）
+    #   action = "herdr-sidebar.open-sidebar"     调别的 herdr 插件的动作（默认配置里不放这种）
     # icon 可选：写 ICONS 里的名字（"git"、"files"…）就按 icons 那一档取字形，也可以直接写一个字形
     "buttons": [{"label": "Git", "command": "lazygit", "icon": "git"},
                 {"label": "文件", "command": "yazi", "icon": "files"}],
@@ -70,7 +72,8 @@ def config():
     except (ImportError, OSError, ValueError):
         user = {}
     cfg = {**DEFAULTS, **{k: v for k, v in user.items() if k in DEFAULTS}}
-    cfg["buttons"] = [b for b in cfg["buttons"] if isinstance(b, dict) and b.get("label") and b.get("command")]
+    cfg["buttons"] = [b for b in cfg["buttons"] if isinstance(b, dict) and b.get("label")
+                      and (b.get("command") or re.fullmatch(r"[\w.:-]+\.[\w:-]+", str(b.get("action") or "")))]
     try:
         cfg["width"] = min(0.9, max(0.1, float(cfg["width"])))
     except (TypeError, ValueError):
@@ -240,17 +243,17 @@ def tool_buttons():
     return [(button_icon(b) or _t(b["label"]), f"tool:{i}") for i, b in enumerate(CFG["buttons"])]
 
 
-# 宽版表头第 1 行的按钮，格子的宽度、点偏一格也算的规矩和 tmux 版一样。
+# 宽版表头第 1 行只放和 Claude 相关的按钮，格子的宽度、点偏一格也算的规矩和 tmux 版一样。
 # 最左上角是「拉到窄版」（»），窄版的「拉回宽版」（«）也在同一个位置（第 1 行第 4 列）。没有「关闭」：
 # 关掉之后鼠标就没有地方再把它点出来了（herdr 的右键菜单是写死的，插件动作进不去，
 # 见 herdr v0.9.5 src/client/shell/context_menu.rs:59-78）。
-# 配置里的按钮（默认 Git = lazygit、文件 = yazi）跟在后面，是本插件自己的浮窗，不依赖别的 herdr 插件。
+# 配置里的自定义按钮（默认 Git = lazygit、文件 = yazi）只是打开别的工具，性质不同：宽版、窄版都放到
+# 最底下一行（fzf 的 footer），用分隔线和上面隔开（用户定的）。
 def wide_buttons():
-    return [(icon("narrow"), "narrow", 0), (icon("bottom"), "bottom", 0),
-            *((t, a, 0) for t, a in tool_buttons()), (icon("usage"), "usage", 10)]
+    return [(icon("narrow"), "narrow", 0), (icon("bottom"), "bottom", 0), (icon("usage"), "usage", 10)]
 
 
-def narrow_footer():
+def footer_buttons():
     return [(t, a, 0) for t, a in tool_buttons()]
 
 
@@ -567,8 +570,8 @@ class Sidebar:
             act = button_at(wide_buttons(), int(col)) if ln == "1" else None
             if act:
                 self.act(act)
-        elif parts[0] == "foot" and len(parts) > 2 and parts[2].isdigit():   # 窄版底部的按钮
-            act = button_at(narrow_footer(), int(parts[2]))
+        elif parts[0] == "foot" and len(parts) > 2 and parts[2].isdigit():   # 底部的自定义按钮
+            act = button_at(footer_buttons(), int(parts[2]))
             if act:
                 self.act(act)
         elif parts[0] == "toggle":            # 插件动作（快捷键）：拉到窄版 / 拉回宽版
@@ -588,7 +591,17 @@ class Sidebar:
             self.run_tool(CFG["buttons"][int(act[5:])])
 
     def run_tool(self, button):
-        """配置里的按钮：在 Claude 那一格的目录里开本插件的浮窗（manifest 的 tool 窗格），经 sh -c 跑它的 command。"""
+        """配置里的按钮。command：在 Claude 那一格的目录里开本插件的浮窗（manifest 的 tool 窗格），经 sh -c 跑它；
+        action：调别的 herdr 插件的动作，先把焦点交回 Claude（点轨迹时焦点到了轨迹上，对方插件按焦点干活）。"""
+        if button.get("action") and not button.get("command"):
+            action = button["action"]
+            try:
+                call("pane.focus", pane_id=self.target)
+                call("plugin.action.invoke", action_id=action,
+                     context={"focused_pane_id": self.target, "invocation_source": PLUGIN_ID})
+            except (OSError, ValueError, HerdrError) as e:
+                self.say(f"{action}: {e}")
+            return
         cmd = button["command"]
         try:
             prog = shlex.split(cmd)[0]
@@ -676,10 +689,11 @@ class Sidebar:
     def fzf_cmd(self, header):
         fifo = _q(self.fifo)
         narrow = self.mode == "narrow"
-        # 窄版：每轮一行，不要项与项之间的空行；按钮放 footer，固定在底部
-        extra = (["--footer", buttons_line(narrow_footer()), "--footer-border=top",
-                  "--bind", ("click-footer:execute-silent(printf 'foot %s %s\\n' \"$FZF_CLICK_FOOTER_LINE\" "
-                             f"\"$FZF_CLICK_FOOTER_COLUMN\" >> {fifo})")] if narrow else ["--gap"])
+        extra = [] if narrow else ["--gap"]   # 窄版：每轮一行，不要项与项之间的空行
+        if footer_buttons():                  # 自定义按钮固定在底部，分隔线和上面隔开
+            extra += ["--footer", buttons_line(footer_buttons()), "--footer-border=top",
+                      "--bind", ("click-footer:execute-silent(printf 'foot %s %s\\n' \"$FZF_CLICK_FOOTER_LINE\" "
+                                 f"\"$FZF_CLICK_FOOTER_COLUMN\" >> {fifo})")]
         return [
             "fzf", "--read0", "--ansi", "--no-input", "--no-sort", "--layout=reverse", "--sync",
             "--track", "--id-nth=1", "--delimiter=\t", "--with-nth=2..",
