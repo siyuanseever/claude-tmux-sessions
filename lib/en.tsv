@@ -374,3 +374,10 @@ Esc 返回	Esc back
 切换中…	switching…
 tmux session 名；不给就看 --pane	tmux session name; without it, use --pane
 没有要切的窗格	No pane to switch
+
+# ---- hooks 的通知（tmux_status_update.py）和恢复提示（resurrect_hooks.py） -------------
+⏸ 等你确认 · {where}	⏸ Waiting for you · {where}
+有权限确认或问题在等你回复	A permission prompt or question is waiting for you
+● 等你确认 · {session} · {window}{what} — prefix a 跳转	● Waiting for you · {session} · {window}{what} — prefix a to jump
+已恢复 {n} 个 Claude Code 会话	Restored {n} Claude Code sessions
+关掉了 {n} 个恢复出来的空侧栏	Closed {n} empty restored sidebars

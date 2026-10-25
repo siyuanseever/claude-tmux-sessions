@@ -53,6 +53,9 @@ import subprocess
 import sys
 import time
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+from i18n import t as _t, EN  # noqa: E402  界面文字：zh 原样，en 查 lib/en.tsv
+
 HOME = os.path.expanduser("~")
 # Overridable so a test against a throwaway tmux server (-L) leaves the real ones alone.
 RESTORE_FILE = os.environ.get("CLAUDE_TMUX_RESTORE_FILE") or os.path.join(HOME, ".claude", "tmux-claude-restore.json")
@@ -222,11 +225,11 @@ def cmd_post_restore():
         os.remove(STATE_FILE)
     except OSError:
         pass
-    msg = [f"已恢复 {n} 个 Claude Code 会话"] if n else []
+    msg = [_t("已恢复 {n} 个 Claude Code 会话").format(n=n)] if n else []
     if closed:
-        msg.append(f"关掉了 {closed} 个恢复出来的空侧栏")
+        msg.append(_t("关掉了 {n} 个恢复出来的空侧栏").format(n=closed))
     if msg:
-        tmux("display-message", "，".join(msg))
+        tmux("display-message", ("; " if EN else "，").join(msg))
 
 
 def live_panes():
@@ -322,7 +325,7 @@ def main():
     elif cmd == "resume":
         n = resume(dry_run="--dry-run" in sys.argv)
         if n and "--dry-run" not in sys.argv:
-            tmux("display-message", f"已恢复 {n} 个 Claude Code 会话")
+            tmux("display-message", _t("已恢复 {n} 个 Claude Code 会话").format(n=n))
     else:
         sys.exit(__doc__)
 

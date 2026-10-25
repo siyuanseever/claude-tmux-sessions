@@ -102,6 +102,17 @@ except Exception:
     effective_status = None    # 读不到就退回原文 —— 状态栏不该因为这个变空
 
 
+def _t(s):
+    """界面文字（lib/i18n.py：zh 原样，en 查 lib/en.tsv）。用到才 import：这个钩子每次工具调用都跑，
+    只有发通知的那条路才需要它。"""
+    try:
+        sys.path.insert(0, os.path.join(BIN_DIR, "..", "lib"))
+        from i18n import t
+        return t(s)
+    except Exception:
+        return s
+
+
 def effective(data, now=None, **kw):
     if effective_status is None:
         return data
@@ -340,11 +351,11 @@ def notify_blocked(session_name, pane, window_name, message, action=None, task=N
     # look identical — the complaint that prompted this. The action comes
     # first because it's the decision; the task line under it says which of a
     # dozen panes this is, in words you wrote.
-    title = f"⏸ 等你确认 · {session_name}:{window_name}"
+    title = _t("⏸ 等你确认 · {where}").format(where=f"{session_name}:{window_name}")
     if action:
         body = action if not task else f"{action}\n↳ {task}"
     else:
-        body = message or "有权限确认或问题在等你回复"
+        body = message or _t("有权限确认或问题在等你回复")
 
     if shutil.which("terminal-notifier"):
         app = frontmost_app() or "iTerm2"
@@ -400,7 +411,8 @@ def tmux_flash(session_name, window_name, pane, action=None):
     # line is dropped entirely — window name plus "what it wants" is what
     # makes it decidable without switching.
     what = f" — {_shorten(action, 60)}" if action else ""
-    msg = f"● 等你确认 · {session_name} · {window_name}{what} — prefix a 跳转"
+    msg = _t("● 等你确认 · {session} · {window}{what} — prefix a 跳转").format(
+        session=session_name, window=window_name, what=what)
     for client in clients:
         try:
             active = subprocess.check_output(
