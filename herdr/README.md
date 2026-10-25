@@ -27,7 +27,7 @@ description = "Claude trail"
 宽版（轨迹窗格 ≥ 30 列）：
 
 ```
- »  ⇊   Git   文件   ⟳ 3 分钟前      ← 按钮：拉到窄版 / 主界面到最底 / 配置里的按钮 / 刷新额度
+ »  ⇊   ±   ▤   ⟳ 3 分钟前          ← 按钮：拉到窄版 / 主界面到最底 / 配置里的按钮（Git、文件）/ 刷新额度
  41 轮
  Opus 5.5/high · siyuan.l2
  ctx ███████░░░│░░░░░  35% 355k       ← 柱子规则和 tmux 版一样（就是同一份代码）
@@ -85,7 +85,7 @@ icons = "nerd"            # "nerd"：Nerd Font 图标；没装 Nerd Font 用 "un
 
 # 按钮：在 Claude 那一格的目录里，用本插件的浮窗跑 command（经 sh -c）。命令找不到会在表头提示。
 # 写了 [[buttons]] 就整组替换默认的两个。icon 可选：写图标名（git、files）按上面 icons 那一档取字形，
-# 也可以直接写一个字形；icons = "text" 时不显示图标
+# 也可以直接写一个字形。图标和 label 只显示一个：有图标就只画图标，icons = "text" 或没配图标时只写 label
 [[buttons]]
 label = "Git"
 command = "lazygit"

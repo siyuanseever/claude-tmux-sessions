@@ -234,14 +234,10 @@ STATUS = {"working": ("working", "WARN_C"), "blocked": ("blocked", "ALERT_C"),
           "done": ("done", "DIMC"), "idle": ("done", "DIMC")}
 
 
-def tool_buttons(with_label=True):
-    """[(文字, 动作)]：宽版图标加文字，窄版只要图标（没有图标的按钮还是写字）。"""
-    out = []
-    for i, b in enumerate(CFG["buttons"]):
-        ic = button_icon(b)
-        text = f"{ic} {b['label']}" if ic and with_label else (ic or b["label"])
-        out.append((text, f"tool:{i}"))
-    return out
+def tool_buttons():
+    """[(文字, 动作)]：图标和字只画一个，宽版窄版一样（用户定的）。有图标就只画图标；
+    icons = "text" 或者这个按钮没配图标，就只写字。"""
+    return [(button_icon(b) or b["label"], f"tool:{i}") for i, b in enumerate(CFG["buttons"])]
 
 
 # 宽版表头第 1 行的按钮，格子的宽度、点偏一格也算的规矩和 tmux 版一样（tmux 版按钮在第 2 行）。
@@ -281,7 +277,7 @@ def button_at(buttons, col):
 
 
 def narrow_footer():
-    return [(t, a, 0) for t, a in tool_buttons(with_label=False)]
+    return [(t, a, 0) for t, a in tool_buttons()]
 
 
 def short_model(model):
