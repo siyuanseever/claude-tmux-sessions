@@ -1,115 +1,129 @@
-# claude-trail（herdr 插件，第一阶段原型，名字发布前再定）
+# claude-trail
 
-Claude Code 会话轨迹，停在 Claude 窗格右边、占满整列高：每轮一项，点一项，Claude 窗格就滚到那一轮的最终回复。
-有宽版和窄版两种画法，按轨迹窗格的实际宽度自动切换，两种都能长期用。
+**Every turn of your Claude Code session, docked next to the running Claude — click one and Claude scrolls to it.**
 
-验收结果和数字见 [../docs/herdr-plugin/PHASE1-RESULT.md](../docs/herdr-plugin/PHASE1-RESULT.md)。
+A [herdr](https://herdr.dev) plugin. It sits on the right of a Claude Code pane and lists the session turn by turn:
+what you asked, and how Claude's final reply starts. Click a turn and Claude's own screen scrolls to that reply.
+On top: the model, the account, and context / 5-hour / 7-day quota bars.
 
-## 本地装
+[中文说明](README.zh-CN.md)
+
+<!-- TODO: demo GIF (open → click a turn → narrow → wide → Git button) -->
+
+Tools like claude-code-history-viewer or claude-code-transcripts let you browse sessions after the fact.
+claude-trail is for the session you are in: it stays beside the live Claude and follows it as it works.
+
+## What you get
+
+- **The trail.** One row per turn. Click a row and Claude jumps there, usually in well under a second.
+  Turns before a `/compact` fold into one row. The list refreshes as soon as Claude starts or stops working.
+- **Model, account, quota.** `ctx`, `5h` and `7d` bars, grey while things are fine and coloured only when they
+  are not: a quota bar turns orange or red when you are using it faster than the window passes, not just when it is
+  high. Two Claude accounts at once (separate `CLAUDE_CONFIG_DIR`s) are fine; each pane shows its own.
+- **Wide and narrow.** Drag the divider: at 30 columns or more you get the full view, below that a narrow one
+  (status, short model and account names, percentages, one short row per turn). `»` / `«` in the top-left corner
+  jumps between the two widths. There is no close button: the narrow view is how you put it away.
+- **Follows herdr.** Colours come from your herdr theme, the status dot uses the same colours as herdr's agent list,
+  and a tab you never named gets the Claude session's name.
+- **Your buttons.** A row at the bottom for your own tools — by default Git (lazygit) and Files (yazi), opened in a
+  popup in Claude's working directory.
+
+## Install
+
+Requirements: herdr 0.9.5+, Python 3.11+, fzf 0.71+ (tested with 0.74). Optional: lazygit and yazi for the
+default buttons. On macOS the system Python is 3.9, so install a newer one first:
 
 ```bash
-herdr plugin link "$PWD/herdr"          # 在仓库根目录
-herdr plugin action invoke claude-trail.toggle
+brew install python fzf          # lazygit yazi, if you want the default buttons
+herdr plugin install <owner>/<repo>
 ```
 
-绑个快捷键（`~/.config/herdr/config.toml`，然后 `herdr server reload-config`）：
+If something is missing, claude-trail says so (a herdr notification, or a message in its pane) instead of failing silently.
+
+Then open a tab with Claude Code in it: the trail opens on the right by itself. To toggle it from the keyboard,
+bind the action in `~/.config/herdr/config.toml` and run `herdr server reload-config`:
 
 ```toml
 [[keys.command]]
 key = "prefix+t"
 type = "plugin_action"
 command = "claude-trail.toggle"
-description = "Claude trail"
+description = "Claude trail: open, or switch wide / narrow"
 ```
 
-## 两种画法
+Claude Code should use fullscreen rendering (`/tui fullscreen`), which is what the jump scrolls.
 
-宽版（轨迹窗格 ≥ 30 列）：
+## Configuration
 
-```
- »  ⇊   ±   ▤   ⟳ 3 分钟前          ← 按钮：拉到窄版 / 主界面到最底 / 配置里的按钮（Git、文件）/ 刷新额度
- 41 轮
- Opus 5.5/high · siyuan.l2
- ctx ███████░░░│░░░░░  35% 355k       ← 柱子规则和 tmux 版一样（就是同一份代码）
- 5h  ████░░░░░░│░░░░░  27% 2h25m
- 7d  ██│░░░░░░░░░░░░░   6% 6d00h
- ────────────────────────────
- #40 10/15 22:05 还有就是你最下面那个表格…    ← 每轮两行：你说的话 + Claude 回复的开头
-     对，上一版是我写漏了：占比那列…
-```
-
-窄版（不到 30 列，最窄约 15 列）：
-
-```
- «            ← 拉回宽版（和宽版的 » 在同一个位置）
- ✓            ← 状态：工作中 / 等你 / 完成
- ✦ Opus5.5/hi
- @ l2         ← 账号：只留和别的账号不一样的那截
- ◧   35%      ← ctx / 5h / 7d：平时灰，快到上限才上色
- ◷   27%
- ▦    6%
- ─────────
- #40 还有就是   ← 每轮一行：轮号 + 你那句话的开头，点一行照样跳转
- #41 那我们
- ─────────
-  ±   ▤       ← 配置里的按钮，固定在底部
-```
-
-（上面用的是 `icons = "unicode"` 的符号；默认的 Nerd Font 图标长得不一样。）
-
-窄版放不下的字段按 账号 → 模型 → 7d 的顺序丢。
-
-## 行为
-
-- **默认打开**：切到一个 tab、或 tab 里起了 Claude，tab 里正好有一个 Claude、它够宽（≥120 列）、
-  还没有轨迹时，自动在它右边开。没有 Claude、或有好几个（agent teams）时不开
-- **宽度**：在 herdr 里拖分隔线就能改，宽版 / 窄版跟着实时切换（窗格收到 SIGWINCH 就重画，不轮询）。
-  左上角的 » / « 一键拉到窄版、拉回宽版；`claude-trail.toggle` 动作（快捷键）也一样
-- **没有「关闭」**：窄版就是省地方的形态，任何时候都有鼠标点得到的入口（herdr 的右键菜单是写死的，
-  插件动作进不去）。Claude 那一格关了、或里面的 Claude 退出 15 秒后，轨迹跟着退出
-- 窄版最窄是这条分割的 10%（约 15 列）：herdr 把分割比例限制在 0.1–0.9
-- 只挪 Claude 和轨迹之间那条线，旁边的 herdr-sidebar 等窗格不动
-- Claude 状态一变（开始干活 / 停下 / 等确认）列表就刷新
-- 本窗格的右键固定交给 herdr 菜单（每次画面重起时设一次），误点「Send right-clicks to pane」也会被改回来
-
-## 配置
-
-`herdr plugin config-dir claude-trail` 打印的目录下的 `config.toml`。文件不存在就全用默认值；
-写错的项回退到默认值。
+`config.toml` in the directory `herdr plugin config-dir claude-trail` prints. Everything is optional; a missing or
+broken file means defaults.
 
 ```toml
-auto_open = true          # 切到有 Claude 的 tab 时自动打开
-default_mode = "wide"     # 打开时多宽："wide"（下面 width 那么宽）或 "narrow"（最窄）
-width = 0.34              # 宽版占 Claude 那一格的比例
-icons = "nerd"            # "nerd"：Nerd Font 图标；没装 Nerd Font 用 "unicode" 普通符号，或 "text" 全写成字
+auto_open = true          # open by itself in a tab that has exactly one Claude
+default_mode = "wide"     # width when it opens: "wide" or "narrow"
+width = 0.34              # wide view, as a share of the Claude pane (Claude always keeps 110 columns)
+icons = "nerd"            # "nerd" (Nerd Font), "unicode" (plain symbols) or "text"
+lang = ""                 # "en" / "zh"; empty follows your locale
+tab_names = true          # name an unnamed tab after the Claude session
 
-# 按钮：在 Claude 那一格的目录里，用本插件的浮窗跑 command（经 sh -c）。命令找不到会在表头提示。
-# 写了 [[buttons]] 就整组替换默认的两个。icon 可选：写图标名（git、files）按上面 icons 那一档取字形，
-# 也可以直接写一个字形。图标和 label 只显示一个：有图标就只画图标，icons = "text" 或没配图标时只写 label
+# Bottom-row buttons. Writing any [[buttons]] replaces the default two.
+# A button shows its icon, or its label when it has no icon (or icons = "text").
 [[buttons]]
 label = "Git"
-command = "lazygit"
-icon = "git"
+command = "lazygit"       # runs in a popup, in Claude's working directory (through sh -c)
+icon = "git"              # an icon name (git, files) or any single glyph
 
 [[buttons]]
-label = "文件"
+label = "Files"
 command = "yazi"
 icon = "files"
+
+# A button can also run another herdr plugin's action instead of a command:
+# [[buttons]]
+# label = "Sidebar"
+# action = "herdr-sidebar.open-sidebar"
 ```
 
-别人可以换成 gitui / tig、ranger / nnn，或者加自己的按钮（比如 `btop`）。
+## What it reads, what it touches
 
-## 依赖
+- **Reads** Claude Code's transcripts (`<config dir>/projects/*/<session>.jsonl`) and `.claude.json` (for the
+  account name). It never writes them.
+- **Quota:** to show real 5-hour / 7-day usage, it asks the same endpoint Claude Code's `/usage` uses
+  (`api.anthropic.com/api/oauth/usage`), at most every 30 minutes, with the OAuth token Claude Code keeps in the
+  macOS Keychain (or `<config dir>/.credentials.json`). The token stays in memory for that one request; it is never
+  written, logged or refreshed. The endpoint is not a documented public API, so if it changes the bars just go quiet.
+- **Sends keys** to the Claude pane only to scroll it (PageUp / PageDown / Ctrl+Home / Ctrl+End / mouse wheel).
+  It never types into the prompt.
+- Its own state lives in the plugin's state directory (`~/.local/state/herdr/plugins/claude-trail/`).
 
-- herdr 0.9.5+、python3（3.11+，要 `tomllib`）、fzf 0.74+（用到 `--listen=<unix socket>`、`click-header`、`click-footer`、`--id-nth`）
-- 按钮默认用 lazygit、yazi，没装就提示
-- 仓库里的 `sidebar/`、`hooks/ctx_to_tmux.py`、`lib/`：解析对话记录、宽版表头直接 import 它们
-- 额度数据来自 `bin/usage-refresh.py`（经 `~/.claude/hooks/usage-refresh.py` 软链，`install.sh` 装）
+## Known limits
 
-## 文件
+- **The narrow view is about 15 columns at least.** herdr keeps split ratios between 0.1 and 0.9, so the narrowest
+  a pane can be is 10% of its split.
+- **No right-click menu entry.** herdr 0.9.5's pane menu is fixed; plugins cannot add to it
+  ([herdrdev/herdr#5550](https://github.com/herdrdev/herdr/issues/5550)). That is why the narrow view, not a close
+  button, is the way to put the trail away.
+- **One Claude per tab.** With agent-team teammates in the same tab it does not open by itself.
+- **Turns that are no longer on Claude's screen** (after `/compact`, or older parts of a resumed session) are marked;
+  clicking them tells you instead of scrolling forever.
+- **Full height** means the full height of the Claude pane; if you split the Claude pane horizontally, the trail
+  is as tall as the Claude part.
+- Only Claude Code for now. The transcript reader is a separate layer (`core/transcript.py`) so other agents can follow.
 
-- `herdr-plugin.toml`：一个动作（toggle）、两个事件钩子（自动打开）、轨迹窗格（`placement = "split"`）、
-  按钮用的浮窗（`placement = "popup"`）
-- `trail.py`：`toggle` / `auto` / `pane` 三个子命令。状态在 `~/.local/state/herdr/plugins/claude-trail/`
-  （`run/` 每个轨迹的登记和 FIFO，`jump.log` 每次跳转的用时，`events.log` 自动打开收到的事件，
-  `pane.err` 窗格程序的报错；`touch debug` 会把每条点击命令也记进 `pane.err`）
+## Roadmap
+
+- Show where Claude's screen is now, as a marker in the list
+- Tokens per turn; expand a turn's tool calls; mark where `/compact` happened
+- Search across sessions
+- Other agents (Codex, OpenCode)
+
+## How it works
+
+Each trail is one small Python process plus an fzf. It subscribes to herdr's events for its Claude pane
+(status changes, pane closed) and sleeps otherwise — about 0.1% of one core while idle. Reading and scrolling
+Claude's screen go through herdr's socket. `core/` holds everything that is not herdr-specific
+(transcripts, quota, rendering, the jump algorithm); `trail.py` is the herdr side.
+
+## License
+
+MIT. The theme palettes in `themes.json` are extracted from herdr (Apache-2.0).
