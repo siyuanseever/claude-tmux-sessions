@@ -35,6 +35,7 @@ set -euo pipefail
 
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$BIN_DIR/header-chips.sh"          # chips(): header text → clickable-looking buttons
+. "$BIN_DIR/../lib/i18n.sh"           # t "中文" → $T；zh 时直接返回，不读文件
 
 cur="${1:-0}"
 dir="${2:-down}"
@@ -95,16 +96,16 @@ fi
 # otherwise be the only sign anything was wrong. It is also the version
 # without `f`, which is correct: no picker instance means no team state to
 # filter.
-PANE_HEADER="${PANE_HEADER:-✕ 关闭 · o 总览 · j/k 选窗口 · 数字直跳 · h session · a 全部 · p 预览 · t token · Enter 跳转 · / 搜索 · ctrl-x 归档 · q 退出}"
-SESSION_HEADER='✕ 关闭 · j/k 选 session · l 切回选窗口 · Enter 跳到该 session · / 搜索 · q 退出'
-SEARCH_HEADER='输入过滤 · Enter 跳转 · Esc 返回 j/k 导航'
+if [ -z "${PANE_HEADER:-}" ]; then t '✕ 关闭 · o 总览 · j/k 选窗口 · 数字直跳 · h session · a 全部 · p 预览 · t token · Enter 跳转 · / 搜索 · ctrl-x 归档 · q 退出'; PANE_HEADER="$T"; fi
+t '✕ 关闭 · j/k 选 session · l 切回选窗口 · Enter 跳到该 session · / 搜索 · q 退出'; SESSION_HEADER="$T"
+t '输入过滤 · Enter 跳转 · Esc 返回 j/k 导航'; SEARCH_HEADER="$T"
 # Shown when `f` had nothing to narrow to, or when the rows it was showing
 # went away. No parentheses in this string: fzf parses `change-header(…)`
 # by matching them, so one here would truncate the header at that point.
-TEAM_EMPTY_HEADER='编队里没有可跳转的 pane · 已显示完整列表 · j/k 浏览 · q 退出'
+t '编队里没有可跳转的 pane · 已显示完整列表 · j/k 浏览 · q 退出'; TEAM_EMPTY_HEADER="$T"
 # Shown while one lead's team is unfolded — the only state in which j/k
 # walks teammates. Same no-parentheses rule as above.
-TEAM_OPEN_HEADER='j/k 选队员 · h 收起 · Enter 跳到该队员 · / 搜索 · q 退出'
+t 'j/k 选队员 · h 收起 · Enter 跳到该队员 · / 搜索 · q 退出'; TEAM_OPEN_HEADER="$T"
 
 mode="pane"
 if [ -n "${MODE_FILE:-}" ] && [ -s "$MODE_FILE" ]; then
@@ -276,24 +277,24 @@ stops_across() {
 # matching them, and one here would truncate the header at that point.
 empty_header() {
   load_rows
-  local bits="q/esc 退出"
+  t "q/esc 退出"; local bits="$T"
   if [ -n "$ROWS" ] && printf '%s\n' "$ROWS" | awk -F'\t' '$4 == "-" { f = 1 } END { exit !f }'; then
-    bits="$bits · a 展开"
+    t "a 展开"; bits="$bits · $T"
   fi
   if [ "$(stops_across)" -gt 0 ]; then
     if [ "$mode" = "session" ]; then
-      bits="$bits · l 回到 pane 列表"
+      t "l 回到 pane 列表"; bits="$bits · $T"
     else
-      bits="$bits · h 看 session"
+      t "h 看 session"; bits="$bits · $T"
     fi
   fi
   # The wording for a genuinely empty list is the startup guard's, verbatim
   # minus its full stop. Arriving at the same state by a different route
   # should not be described in different words.
   if [ "$TOTAL" -eq 0 ]; then
-    bits="$bits · 没有找到仍然存活的 Claude Code tmux pane"
+    t "没有找到仍然存活的 Claude Code tmux pane"; bits="$bits · $T"
   else
-    bits="$bits · 这一屏没有可以选的行"
+    t "这一屏没有可以选的行"; bits="$bits · $T"
   fi
   printf '%s' "$bits"
 }
@@ -325,7 +326,7 @@ mode_header() {
     # screen. A hint you cannot see is not a hint. On a lead row `l` is also
     # the most interesting key there is, which makes the front the honest
     # place for it rather than merely the visible one.
-    printf '%s · %s' 'l 展开队员' "$PANE_HEADER"
+    t 'l 展开队员'; printf '%s · %s' "$T" "$PANE_HEADER"
   else
     printf '%s' "$PANE_HEADER"
   fi

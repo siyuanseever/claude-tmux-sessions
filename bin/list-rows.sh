@@ -45,6 +45,7 @@ run_with_deadline() {  # $1 = seconds, rest = command
 }
 
 if [ -n "${CLAUDE_TMUX_EXTRA_CMD:-}" ] && [ -x "${CLAUDE_TMUX_EXTRA_CMD}" ]; then
+  . "$BIN_DIR/../lib/i18n.sh"; t "⋯ 还有 %d 条 · a 展开"; extra_more="$T"
   # Accepted shapes, and nothing else:
   #   item   >=6 fields, field 5 == "extra", field 6 a non-empty id
   #   label  <=4 fields, empty pane id and empty row number — a section
@@ -64,14 +65,14 @@ if [ -n "${CLAUDE_TMUX_EXTRA_CMD:-}" ] && [ -x "${CLAUDE_TMUX_EXTRA_CMD}" ]; the
   extra="$(run_with_deadline "${CLAUDE_TMUX_EXTRA_TIMEOUT:-2}" \
              "$CLAUDE_TMUX_EXTRA_CMD" list 2>/dev/null \
            | awk -F'\t' '(NF>=6 && $5=="extra" && $6!="") || (NF<=4 && $2=="" && $4=="")' \
-           | awk -F'\t' -v keep="$extra_keep" -v all="$extra_show_all" '
+           | awk -F'\t' -v keep="$extra_keep" -v all="$extra_show_all" -v more="$extra_more" '
                # A section label resets the per-section counter. The fold
                # note carries "-" in the row-number field, the same marker
                # used by the collapse note on the pane side: it has no id to act on
                # and nothing to say, so it is a stop in neither cursor mode
                # (an empty field 4 would make session mode land on it while
                # stepping through sections). See skip-header.sh HEADER_POS.
-               function flush() { if (!all && hidden > 0) printf "  \033[2m⋯ 还有 %d 条 · a 展开\033[0m\t\t\t-\n", hidden }
+               function flush() { if (!all && hidden > 0) printf "  \033[2m" more "\033[0m\t\t\t-\n", hidden }
                (NF<=4 && $2=="" && $4=="") { flush(); hidden=0; n=0; print; next }
                { if (all == "1" || n < keep) { n++; print } else hidden++ }
                END { flush() }' \
@@ -124,6 +125,9 @@ if bin_dir and os.path.isdir(os.path.join(_claude_home, "teams")):
 if teams_snap is not None and not teams_snap["teams"]:
     teams_snap = None          # the directory exists but holds nothing readable
 members_by_pane = teams_snap["by_pane"] if teams_snap else {}
+
+sys.path.insert(0, os.path.join(bin_dir or ".", "..", "lib"))
+from i18n import t as _t, dur    # 界面文字：zh 原样，en 查 lib/en.tsv
 
 # 名字列不再有「自己造的」来源。删掉的两级：
 #   - claude_sessions.py 读 Claude Code 的 /rename 名字 —— 冗余：Claude Code
@@ -458,20 +462,14 @@ def fmt_age(rank, secs):
     RUN = since the prompt was submitted (how long it's been running),
     WAIT = since the permission prompt appeared, DONE = since it
     finished (both the unread DONE and the already-seen READ)."""
-    secs = max(0, int(secs))
-    if secs < 60:
-        d = f"{secs}秒"
-    elif secs < 3600:
-        d = f"{secs // 60}分钟"
-    else:
-        d = f"{secs / 3600:.1f}".rstrip("0").rstrip(".") + "小时"
+    d = dur(secs)
     if rank == 2:
-        return f"已运行 {d}"
+        return _t("已运行 {d}").format(d=d)
     if rank == -1:
-        return f"等确认 {d}"
+        return _t("等确认 {d}").format(d=d)
     if rank == 1:
-        return f"完成 {d}前"
-    return f"{d}前"  # READ — since it last finished something
+        return _t("完成 {d}前").format(d=d)
+    return _t("{d}前").format(d=d)  # READ — since it last finished something
 
 
 # An unread DONE left untouched this long has clearly been abandoned —
@@ -608,7 +606,7 @@ def mate_cell(member, plain=False):
     ranks = mate_ranks.get(member["team"]) or []
     if not ranks:
         return ""
-    head = f"{agent_teams.MEMBER_LABEL} {len(ranks)}"
+    head = _t("队员 {n}").format(n=len(ranks))
     if not plain:
         head = f"\033[36m{head}\033[0m"
     return head + " " + mate_chip_text(member["team"], plain) + "  "
@@ -754,10 +752,10 @@ def member_tail(member, counts):
         bits.append(f"✉{member['inbox']}")
     if member.get("is_lead"):
         if counts.get("in_progress"):
-            bits.append(f"{counts['in_progress']} 人在做")
+            bits.append(_t("{n} 人在做").format(n=counts['in_progress']))
         for key, word in (("pending", "待领"), ("blocked", "挡住")):
             if counts.get(key):
-                bits.append(f"{word} {counts[key]}")
+                bits.append(f"{_t(word)} {counts[key]}")
     elif member.get("doing"):
         num = f"#{member['doing_id']} " if member.get("doing_id") else ""
         bits.append(num + member["doing"])
@@ -1008,9 +1006,9 @@ for s in sessions_sorted:
         n_read = sum(1 for e in hideable if e[1] == 3)
         n_stale = len(hideable) - n_read
         if n_read:
-            kinds.append(f"{n_read} 已读")
+            kinds.append(_t("{n} 已读").format(n=n_read))
         if n_stale:
-            kinds.append(f"{n_stale} 搁置")
-        note = f"⋯ 收起 {len(hideable)} 个({' · '.join(kinds)}) · a 展开"
+            kinds.append(_t("{n} 搁置").format(n=n_stale))
+        note = _t("⋯ 收起 {n} 个({kinds}) · a 展开").format(n=len(hideable), kinds=' · '.join(kinds))
         print(f"       \033[2m{note}\033[0m\t\t{s}\t-")
 PYEOF

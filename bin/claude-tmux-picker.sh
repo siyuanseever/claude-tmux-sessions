@@ -22,11 +22,12 @@ SCRIPT_PATH="${BASH_SOURCE[0]}"
 [ -L "$SCRIPT_PATH" ] && SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
 BIN_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 STATUS_UPDATER="$BIN_DIR/../hooks/tmux_status_update.py"
+. "$BIN_DIR/../lib/i18n.sh"           # t "中文" → $T（英文界面查 lib/en.tsv）
 
 STATUS_FILE="$HOME/.claude/tmux-claude-status.json"
 
 if [ ! -s "$STATUS_FILE" ]; then
-  echo "还没有记录到任何 Claude Code session。"
+  t "还没有记录到任何 Claude Code session。"; echo "$T"
   sleep 1.5
   exit 0
 fi
@@ -54,7 +55,7 @@ CLAUDE_HOME_DIR="${CLAUDE_HOME:-$HOME/.claude}"
 # want when you have just come back and don't know where to look yet — and
 # the header is cut off around column 78 on the list side of a split picker,
 # so the front is the only place a new entry is reliably on screen.
-PANE_HEADER='✕ 关闭 · o 总览 · j/k 选窗口 · 数字直跳 · h session · a 全部 · p 预览 · t token · Enter 跳转 · / 搜索 · ctrl-x 归档 · q 退出'
+t '✕ 关闭 · o 总览 · j/k 选窗口 · 数字直跳 · h session · a 全部 · p 预览 · t token · Enter 跳转 · / 搜索 · ctrl-x 归档 · q 退出'; PANE_HEADER="$T"
 if [ -d "$CLAUDE_HOME_DIR/teams" ]; then
   TEAM_FILE="$(mktemp "${TMPDIR:-/tmp}/claude-tmux-picker-teamonly.XXXXXX")"
   export TEAM_FILE
@@ -68,7 +69,7 @@ if [ -d "$CLAUDE_HOME_DIR/teams" ]; then
   # row, and this string is already wider than the list side of a split
   # picker, so a permanent entry would push an existing one off the end.
   # skip-header.sh appends the hint on the rows where the key works.
-  PANE_HEADER='✕ 关闭 · o 总览 · j/k 选窗口 · 数字直跳 · h session · a 全部 · f 编队 · p 预览 · t token · Enter 跳转 · / 搜索 · ctrl-x 归档 · q 退出'
+  t '✕ 关闭 · o 总览 · j/k 选窗口 · 数字直跳 · h session · a 全部 · f 编队 · p 预览 · t token · Enter 跳转 · / 搜索 · ctrl-x 归档 · q 退出'; PANE_HEADER="$T"
 fi
 # Exported so skip-header.sh uses the same string when it restores the
 # header after a mode switch. It used to be written out twice, once here
@@ -81,7 +82,7 @@ export HEADER_FILE                    # the header as plain text, for mouse.sh
 rows="$("$BIN_DIR/list-rows.sh")"
 
 if [ -z "$rows" ]; then
-  echo "没有找到仍然存活的 Claude Code tmux pane。"
+  t "没有找到仍然存活的 Claude Code tmux pane。"; echo "$T"
   sleep 1.5
   exit 0
 fi
@@ -172,12 +173,13 @@ if [ "${CLAUDE_TMUX_PREVIEW_WIDTH:-50}" = 0 ]; then
 else
   PREVIEW_WINDOW="$side,${CLAUDE_TMUX_PREVIEW_WIDTH:-50}%,$border,wrap,follow"
 fi
+t "Claude 实时画面"; preview_label=" $T "
 fzf_args=(--ansi --delimiter=$'\t' --with-nth=1 --disabled --no-input
   --header="$(chips "$PANE_HEADER")"
   --layout=reverse --height=100%
   --preview "$BIN_DIR/preview-row.sh {2} {3} {5} {6}"
   --preview-window="$PREVIEW_WINDOW"
-  --preview-label=' Claude 实时画面 '
+  --preview-label="$preview_label"
   # 滚轮分两层、又不起进程：session 级只在 session 行之间滚，pane 级只在 pane 行之间滚
   # （用户 2026-09-28：「分两层滚动……两个不要混在一起滚动」）。
   # 走 transform 的话每一格都要 fork 一个进程（skip-header.sh 一趟 18ms，快速一滑几十格
@@ -353,7 +355,7 @@ else
         -F "#{session_name}	#{window_active}#{pane_active}	#{pane_id}" 2>/dev/null \
       | awk -F'\t' -v s="$session" '$1==s && $2=="11" { print $3; exit }')
     if [ -z "$pane_id" ]; then
-      echo "session 已经不存在了 ($session)。"
+      t "session 已经不存在了 (%s)。"; printf "$T\n" "$session"
       sleep 1.5
       exit 0
     fi
@@ -369,7 +371,7 @@ fi
 # empty format), so the check passed and the jump fell through to a raw tmux
 # error instead of this line.
 if ! tmux has-session -t "$pane_id" 2>/dev/null; then
-  echo "pane 已经不存在了 ($pane_id)。"
+  t "pane 已经不存在了 (%s)。"; printf "$T\n" "$pane_id"
   sleep 1.5
   exit 0
 fi

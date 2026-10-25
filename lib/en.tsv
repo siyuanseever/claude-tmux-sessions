@@ -12,3 +12,81 @@
 缺少依赖:	Missing dependencies:
 ==> (可选) brew install terminal-notifier — 装了之后点击 blocked 通知能直接跳到那个 pane	==> (optional) brew install terminal-notifier — then clicking a blocked notification jumps straight to that pane
 侧栏常驻进程已装好（%s）	Sidebar daemon installed (%s)
+
+# ---- picker 表头（skip-header.sh 每次按键都查，放前面） ----------------------------------
+✕ 关闭 · o 总览 · j/k 选窗口 · 数字直跳 · h session · a 全部 · p 预览 · t token · Enter 跳转 · / 搜索 · ctrl-x 归档 · q 退出	✕ close · o overview · j/k select · digits jump · h sessions · a all · p preview · t tokens · Enter jump · / search · ctrl-x archive · q quit
+✕ 关闭 · o 总览 · j/k 选窗口 · 数字直跳 · h session · a 全部 · f 编队 · p 预览 · t token · Enter 跳转 · / 搜索 · ctrl-x 归档 · q 退出	✕ close · o overview · j/k select · digits jump · h sessions · a all · f teams · p preview · t tokens · Enter jump · / search · ctrl-x archive · q quit
+✕ 关闭 · j/k 选 session · l 切回选窗口 · Enter 跳到该 session · / 搜索 · q 退出	✕ close · j/k select session · l back to panes · Enter go to session · / search · q quit
+输入过滤 · Enter 跳转 · Esc 返回 j/k 导航	type to filter · Enter jump · Esc back to j/k
+编队里没有可跳转的 pane · 已显示完整列表 · j/k 浏览 · q 退出	no team pane to jump to · showing the full list · j/k browse · q quit
+j/k 选队员 · h 收起 · Enter 跳到该队员 · / 搜索 · q 退出	j/k select teammate · h fold · Enter go to teammate · / search · q quit
+l 展开队员	l show teammates
+q/esc 退出	q/esc quit
+a 展开	a expand
+l 回到 pane 列表	l back to panes
+h 看 session	h sessions
+没有找到仍然存活的 Claude Code tmux pane	no live Claude Code tmux pane found
+这一屏没有可以选的行	nothing to select here
+
+# ---- picker 提示（claude-tmux-picker.sh / preview-row.sh / list-rows.sh） ------
+还没有记录到任何 Claude Code session。	No Claude Code session recorded yet.
+没有找到仍然存活的 Claude Code tmux pane。	No live Claude Code tmux pane found.
+Claude 实时画面	Claude live view
+session 已经不存在了 (%s)。	Session no longer exists (%s).
+pane 已经不存在了 (%s)。	Pane no longer exists (%s).
+(provider 没能给出预览)	(the provider gave no preview)
+(pane 已关闭或无法读取)	(pane closed or unreadable)
+(session 已关闭或无法读取)	(session closed or unreadable)
+⋯ 还有 %d 条 · a 展开	⋯ %d more · a expand
+
+# ---- 状态和时长（list-rows.sh / session-digest.py / overview.py） -----------------
+已运行 {d}	running {d}
+等确认 {d}	waiting {d}
+等输入 {d}	idle {d}
+完成 {d}前	done {d} ago
+{d}前	{d} ago
+
+# ---- 编队（agent_teams.py / list-rows.sh / session-digest.py） -----------------
+中枢	lead
+队员	mate
+队员 {n}	mates {n}
+{n} 人在做	{n} doing
+在做	doing
+待领	open
+挡住	blocked
+完成	done
+信箱	inbox
+编队 {team}	team {team}
+类型 {type}	type {type}
+等 #{n}	waits on #{n}
+信箱 {n} 条未读	{n} unread in inbox
+信箱 {n}	inbox {n}
+状态未知	unknown
+没有对应 pane	no pane
+共享任务表(未完成 {n})	shared tasks ({n} open)
+▎ (还没有回复内容)	▎ (no reply yet)
+没有找到任何编队。(找的是 {path}/*/config.json)	No team found. (looked in {path}/*/config.json)
+编队 {team}  在做 {doing} · 待领 {open} · 挡住 {blocked} · 完成 {done}	team {team}  doing {doing} · open {open} · blocked {blocked} · done {done}
+(没有 pane)	(no pane)
+
+# ---- picker 折叠行（list-rows.sh） ----------------------------------------------
+{n} 已读	{n} read
+{n} 搁置	{n} stale
+⋯ 收起 {n} 个({kinds}) · a 展开	⋯ {n} folded ({kinds}) · a expand
+
+# ---- picker 底部额度（usage-footer.sh） ------------------------------------------
+5小时窗口	5h window
+7天窗口	7d window
+7天 Opus	7d Opus
+7天 Sonnet	7d Sonnet
+额外用量	extra
+{when} 重置	resets {when}
+已用	used
+{n}分钟前	{n}m ago
+{n}小时前	{n}h ago
+今日	today
+近5h	last 5h
+近{n}天	last {n}d
+峰值	peak
+日均	avg/day
+※ 额度百分比为 Claude Code {note}缓存的 /usage 数据 · 其余为本地实时统计	※ quota % is the /usage data Claude Code cached {note} · the rest is counted live from local logs

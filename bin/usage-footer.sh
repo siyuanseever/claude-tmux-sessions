@@ -12,12 +12,18 @@
 # (bg-transform-footer), so cost doesn't delay startup.
 set -euo pipefail
 
-python3 - <<'PYEOF'
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+[ -L "$SCRIPT_PATH" ] && SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
+CT_LIB="$(cd "$(dirname "$SCRIPT_PATH")/../lib" && pwd)" python3 - <<'PYEOF'
 import glob
 import json
 import os
+import sys
 import time
 from collections import defaultdict
+
+sys.path.insert(0, os.environ.get("CT_LIB") or ".")
+from i18n import t as _t, EN    # 界面文字：zh 原样，en 查 lib/en.tsv
 
 DIM = "\033[2m"
 CYAN = "\033[36m"
@@ -126,26 +132,28 @@ try:
         try:
             dt = datetime.fromisoformat(v["resets_at"]).astimezone()
             fmt = "%H:%M" if dt.date() == datetime.now().astimezone().date() else "%m-%d %H:%M"
-            resets = f" {DIM}· {dt.strftime(fmt)} 重置{RESET}"
+            resets = f" {DIM}· {_t('{when} 重置').format(when=dt.strftime(fmt))}{RESET}"
         except Exception:
             pass
         label = LIMIT_LABELS.get(key, key)
+        if EN:   # 中文那几个标签末尾自带的空格是对齐用的；英文另按 9 格补齐
+            label = _t(label.rstrip()).ljust(9)
         out.append(
             f"{label}  {bar(pct / 100, colour=limit_colour(pct))} "
-            f"{limit_colour(pct)}{pct:3.0f}%{RESET} 已用{resets}"
+            f"{limit_colour(pct)}{pct:3.0f}%{RESET} {_t('已用')}{resets}"
         )
     if cached.get("fetchedAtMs"):
         age = now - cached["fetchedAtMs"] / 1000
         if age < 3600:
-            fetched_note = f"{age / 60:.0f}分钟前"
+            fetched_note = _t("{n}分钟前").format(n=f"{age / 60:.0f}")
         else:
-            fetched_note = f"{age / 3600:.1f}小时前"
+            fetched_note = _t("{n}小时前").format(n=f"{age / 3600:.1f}")
 except Exception:
     pass
 
 day_total = sum(day_by_model.values())
 
-out.append(f"今日  {fmt_tok(day_total)} tok  {DIM}·{RESET}  近5h ≈{fmt_tok(win)} tok")
+out.append(f"{_t('今日')}  {fmt_tok(day_total)} tok  {DIM}·{RESET}  {_t('近5h')} ≈{fmt_tok(win)} tok")
 if day_total:
     # Per-model bars, scaled as share of today — they visually sum to
     # one full bar's worth.
@@ -177,13 +185,13 @@ try:
         )
         avg = sum(v for _, v in days) / len(days)
         out.append(
-            f"近{len(days)}天  {CYAN}{spark}{RESET}  "
-            f"{DIM}峰值 {fmt_tok(peak)} ({peak_date[5:]}) · 日均 {fmt_tok(avg)}{RESET}"
+            f"{_t('近{n}天').format(n=len(days))}  {CYAN}{spark}{RESET}  "
+            f"{DIM}{_t('峰值')} {fmt_tok(peak)} ({peak_date[5:]}) · {_t('日均')} {fmt_tok(avg)}{RESET}"
         )
 except Exception:
     pass
 
 if fetched_note:
-    out.append(f"{DIM}※ 额度百分比为 Claude Code {fetched_note}缓存的 /usage 数据 · 其余为本地实时统计{RESET}")
+    out.append(f"{DIM}{_t('※ 额度百分比为 Claude Code {note}缓存的 /usage 数据 · 其余为本地实时统计').format(note=fetched_note)}{RESET}")
 print("\n".join(out))
 PYEOF

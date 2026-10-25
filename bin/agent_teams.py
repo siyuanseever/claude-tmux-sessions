@@ -29,6 +29,10 @@ everyone who has never switched Agent Teams on.
 import glob
 import json
 import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "lib"))
+from i18n import t as _t  # noqa: E402  界面文字：zh 原样，en 查 lib/en.tsv
 
 # Overridable so the "no teams" degradation path can be exercised against
 # an empty directory without touching, or even reading, the real
@@ -286,8 +290,8 @@ def label_overrides():
 
 
 # Defaults for the two roles the official data really does distinguish.
-LEAD_LABEL = "中枢"
-MEMBER_LABEL = "队员"
+LEAD_LABEL = _t("中枢")
+MEMBER_LABEL = _t("队员")
 
 # The official palette. A teammate is handed one `color` when it is spawned
 # and keeps it for the life of the team, which makes it the one per-member
@@ -529,12 +533,13 @@ def attach_lead(snap, pane_window):
 if __name__ == "__main__":                       # a quick look from a shell
     snap = snapshot()
     if not snap["teams"]:
-        print(f"没有找到任何编队。(找的是 {teams_dir()}/*/config.json)")
+        print(_t("没有找到任何编队。(找的是 {path}/*/config.json)").format(path=teams_dir()))
     for t in snap["teams"]:
         c = t["counts"]
-        print(f"编队 {t['team']}  在做 {c['in_progress']} · 待领 {c['pending']}"
-              f" · 挡住 {c['blocked']} · 完成 {c['completed']}")
+        print(_t("编队 {team}  在做 {doing} · 待领 {open} · 挡住 {blocked} · 完成 {done}").format(
+            team=t['team'], doing=c['in_progress'], open=c['pending'], blocked=c['blocked'],
+            done=c['completed']))
         for m in t["members"]:
-            box = f" · 信箱 {m['inbox']}" if m["inbox"] else ""
-            print(f"  {m['label']}  {m['name']:16} {m['pane'] or '(没有 pane)':6}"
+            box = " · " + _t("信箱 {n}").format(n=m['inbox']) if m["inbox"] else ""
+            print(f"  {m['label']}  {m['name']:16} {m['pane'] or _t('(没有 pane)'):6}"
                   f"{box}  {m['doing']}")
