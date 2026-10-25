@@ -54,9 +54,10 @@ DEFAULTS = {
     # 图标："auto"（默认）：本机装了 Nerd Font 就用 "nerd"，没装用 "unicode"；也可以直接写 "nerd" / "unicode" /
     # "text"（全部写成字）。装了不代表终端在用它，显示成方块就手动设 "unicode"
     "icons": "auto",
-    # 额度：默认只读 Claude Code 自己缓存在 .claude.json 里的读数，不碰任何凭据（只在你跑 /usage 之类时更新，可能是几天前的）。
-    # 设 true 才自己去查真实额度：读 Claude Code 存在钥匙串里的令牌，调 /usage 用的那个接口，最多 30 分钟一次
-    "live_usage": False,
+    # 额度一层一层兜底、谁新用谁（core/claude.read_usage）。live_usage 打开（默认）时先试实时查询：读 Claude Code
+    # 存在钥匙串里的令牌，调 /usage 用的那个接口，最多 30 分钟一次；查不到就退到 statusLine 桥接、.claude.json 缓存。
+    # 默认打开是用户定的：插件要开箱就有数，别默认就是「?」。不想读凭据就设 false
+    "live_usage": True,
     "lang": "",                    # "zh" / "en"；不写就按系统 locale
     "tab_names": True,             # 没手动起过名的 tab，用 Claude 的会话名命名（会话名变了跟着改）
     # 自定义按钮，宽版、窄版都放在最底下一行（和上面 Claude 相关的按钮分开）。两种：

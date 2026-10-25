@@ -60,7 +60,7 @@ default_mode = "wide"     # 打开时多宽："wide" 或 "narrow"
 width = 0.34              # 宽版占 Claude 那一格的比例（总会给 Claude 留 110 列）
 icons = "auto"            # "auto"：装了 Nerd Font 就用它的图标，没装用普通符号；也可以写 "nerd" / "unicode" / "text"
                           # 装了不代表终端在用它：显示成方块就手动设 "unicode"
-live_usage = false        # true：再加一份用你的 Claude 登录实时查的额度（见下）
+live_usage = true         # 用你的 Claude 登录实时查额度（见下）；false：从不
 lang = ""                 # "en" / "zh"；不写就按系统 locale
 tab_names = true          # 没起过名的 tab 用 Claude 的会话名命名
 
@@ -86,7 +86,7 @@ icon = "files"
 
 - **读** Claude Code 的对话记录（`<配置目录>/projects/*/<会话>.jsonl`）和 `.claude.json`（取账号名）。从不写它们。
 - **额度：几份来源，谁新用谁。** 每一份都是有才用：
-  1. **实时查询**（只有 `live_usage = true` 才用）：调 Claude Code 的 `/usage` 也在调的接口（`api.anthropic.com/api/oauth/usage`），
+  1. **实时查询**（默认打开，`live_usage = false` 关掉）：调 Claude Code 的 `/usage` 也在调的接口（`api.anthropic.com/api/oauth/usage`），
      最多 30 分钟一次，用 Claude Code 存在 macOS 钥匙串（或 `<配置目录>/.credentials.json`）里的 OAuth 令牌。令牌只在这一次请求里
      放在内存中，从不写下来、不打印、不刷新。这个接口不是公开文档里的 API，变了的话这一份就安静地没有了。
   2. **Status Line 桥接**（你接上了才有，见下）：Claude Code 每回复一条，就把 5 小时、7 天的百分比交给状态栏（Pro / Max 订阅）。不碰任何凭据。

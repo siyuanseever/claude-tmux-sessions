@@ -65,7 +65,7 @@ default_mode = "wide"     # width when it opens: "wide" or "narrow"
 width = 0.34              # wide view, as a share of the Claude pane (Claude always keeps 110 columns)
 icons = "auto"            # "auto": Nerd Font icons if one is installed, else plain symbols;
                           # or "nerd" / "unicode" / "text". Installed is not in use: if you see boxes, set "unicode"
-live_usage = false        # true: also ask for live 5h / 7d quota with your Claude login (see below)
+live_usage = true         # also ask for live 5h / 7d quota with your Claude login (see below); false: never
 lang = ""                 # "en" / "zh"; empty follows your locale
 tab_names = true          # name an unnamed tab after the Claude session
 
@@ -92,7 +92,7 @@ icon = "files"
 - **Reads** Claude Code's transcripts (`<config dir>/projects/*/<session>.jsonl`) and `.claude.json` (for the
   account name). It never writes them.
 - **Quota: several sources, the newest wins.** Each one is used only if it is there:
-  1. **Live** (only with `live_usage = true`): asks the endpoint Claude Code's `/usage` uses
+  1. **Live** (on by default; `live_usage = false` turns it off): asks the endpoint Claude Code's `/usage` uses
      (`api.anthropic.com/api/oauth/usage`), at most every 30 minutes, with the OAuth token Claude Code keeps in the
      macOS Keychain (or `<config dir>/.credentials.json`). The token stays in memory for that one request; it is never
      written, logged or refreshed. Not a documented public API: if it changes, this source just goes quiet.
