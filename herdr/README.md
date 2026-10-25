@@ -1,4 +1,4 @@
-# claude-trail
+# statetrail
 
 **Every turn of your Claude Code session, docked next to the running Claude — click one and Claude scrolls to it.**
 
@@ -8,10 +8,10 @@ On top: the model, the account, and context / 5-hour / 7-day quota bars.
 
 [中文说明](README.zh-CN.md)
 
-![claude-trail in herdr: open, click a turn, narrow, wide, Git button](docs/demo.gif)
+![statetrail in herdr: open, click a turn, narrow, wide, Git button](docs/demo.gif)
 
 Tools like claude-code-history-viewer or claude-code-transcripts let you browse sessions after the fact.
-claude-trail is for the session you are in: it stays beside the live Claude and follows it as it works.
+statetrail is for the session you are in: it stays beside the live Claude and follows it as it works.
 
 ## What you get
 
@@ -36,10 +36,10 @@ default buttons. On macOS the system Python is 3.9, so install a newer one first
 
 ```bash
 brew install python fzf          # lazygit yazi, if you want the default buttons
-herdr plugin install siyuanseever/<repo>      # name not final yet
+herdr plugin install siyuanseever/statetrail/herdr
 ```
 
-If something is missing, claude-trail says so (a herdr notification, or a message in its pane) instead of failing silently.
+If something is missing, statetrail says so (a herdr notification, or a message in its pane) instead of failing silently.
 
 Then open a tab with Claude Code in it: the trail opens on the right by itself. To toggle it from the keyboard,
 bind the action in `~/.config/herdr/config.toml` and run `herdr server reload-config`:
@@ -48,15 +48,15 @@ bind the action in `~/.config/herdr/config.toml` and run `herdr server reload-co
 [[keys.command]]
 key = "prefix+t"
 type = "plugin_action"
-command = "claude-trail.toggle"
-description = "Claude trail: open, or switch wide / narrow"
+command = "statetrail.toggle"
+description = "statetrail: open, or switch wide / narrow"
 ```
 
 Claude Code should use fullscreen rendering (`/tui fullscreen`), which is what the jump scrolls.
 
 ## Configuration
 
-`config.toml` in the directory `herdr plugin config-dir claude-trail` prints. Everything is optional; a missing or
+`config.toml` in the directory `herdr plugin config-dir statetrail` prints. Everything is optional; a missing or
 broken file means defaults.
 
 ```toml
@@ -101,7 +101,7 @@ icon = "files"
   written, logged or refreshed. The endpoint is not a documented public API, so if it changes the bars just go quiet.
 - **Sends keys** to the Claude pane only to scroll it (PageUp / PageDown / Ctrl+Home / Ctrl+End / mouse wheel).
   It never types into the prompt.
-- Its own state lives in the plugin's state directory (`~/.local/state/herdr/plugins/claude-trail/`).
+- Its own state lives in the plugin's state directory (`~/.local/state/herdr/plugins/statetrail/`).
 
 ## Known limits
 

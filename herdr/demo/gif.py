@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""docs/demo.gif — claude-trail 在 herdr 里的样子，十来秒：真插件、真 herdr、假数据。
+"""docs/demo.gif — statetrail 在 herdr 里的样子，十来秒：真插件、真 herdr、假数据。
 
-    python3 demo/gif.py            → docs/demo.gif（各帧在 $TMPDIR/claude-trail-gif/）
+    python3 demo/gif.py            → docs/demo.gif（各帧在 $TMPDIR/statetrail-gif/）
 
 怎么做的：在一个私有 tmux server（-L herdrdemo）里，用假 $HOME（/private/tmp/herdrdemo）起一个完全隔离的
 herdr（环境变量用 env -i 清空，不会连到你正在用的 herdr）。窗格里跑 fake_claude.py——把一份编出来的对话记录
@@ -32,7 +32,7 @@ PLUGIN = HERE.parent
 ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
 OUT = Path(ARGS[0]) if ARGS else PLUGIN / "docs" / "demo.gif"
 HOME = Path("/private/tmp/herdrdemo")          # macOS 的 /tmp 是软链，herdr 报的是真实路径
-WORK = Path(os.environ.get("TMPDIR", "/tmp")) / "claude-trail-gif"
+WORK = Path(os.environ.get("TMPDIR", "/tmp")) / "statetrail-gif"
 HERDR = shutil.which("herdr") or str(Path.home() / ".local" / "bin" / "herdr")
 W, H = 200, 44                     # 窄了宽版放不下：轨迹要给 Claude 留 110 列
 STAGE = "--stage" in sys.argv      # 只搭好环境、不录，留着手动试（tmux -L herdrdemo attach）
@@ -96,7 +96,7 @@ def trail_x():
     """轨迹窗格的左边缘在第几列：herdr 的 pane.layout 是 tab 区域里的坐标，加上 herdr 左侧栏的宽度。"""
     import json
     panes = json.loads(herdr("pane", "list"))["result"]["panes"]
-    trail = next(p for p in panes if p.get("label") == "Trail")
+    trail = next(p for p in panes if p.get("label") == "statetrail")
     lay = json.loads(herdr("pane", "layout", "--pane", trail["pane_id"]))["result"]["layout"]
     rect = next(p["rect"] for p in lay["panes"] if p["pane_id"] == trail["pane_id"])
     return rect["x"] + (W - lay["area"]["width"]) + 1

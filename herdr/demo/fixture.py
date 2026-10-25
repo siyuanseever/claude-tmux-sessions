@@ -102,8 +102,8 @@ def main():
 
     # herdr 和插件的配置：图标用 unicode 档，渲染时不依赖 Nerd Font 字体
     cfg = HOME / ".config" / "herdr"
-    (cfg / "plugins" / "config" / "claude-trail").mkdir(parents=True, exist_ok=True)
-    (cfg / "plugins" / "config" / "claude-trail" / "config.toml").write_text('icons = "unicode"\nlang = "en"\n')
+    (cfg / "plugins" / "config" / "statetrail").mkdir(parents=True, exist_ok=True)
+    (cfg / "plugins" / "config" / "statetrail" / "config.toml").write_text('icons = "unicode"\nlang = "en"\n')
     (cfg / "config.toml").write_text('[theme]\nname = "catppuccin"\n\n[ui]\nstatus_indicators = "dots"\n')
 
     # lazygit 第一次运行会弹欢迎框，盖住整个浮窗：告诉它已经看过了（macOS 上状态文件在 Library/Application Support）

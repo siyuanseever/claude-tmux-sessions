@@ -3,7 +3,7 @@
 `docs/demo.gif` 是这套脚本录的，任何人都能复现出同一张，图不会随着代码演进悄悄失真，也不用把真实会话发出去。
 
 ```bash
-python3 demo/gif.py            # → docs/demo.gif，各帧在 $TMPDIR/claude-trail-gif/
+python3 demo/gif.py            # → docs/demo.gif，各帧在 $TMPDIR/statetrail-gif/
 python3 demo/gif.py --stage    # 只搭好环境不录，tmux -L herdrdemo attach -t demo 进去手动试
 ```
 
@@ -20,7 +20,7 @@ python3 demo/gif.py --stage    # 只搭好环境不录，tmux -L herdrdemo attac
 ## 诚实边界
 
 1. **Claude 是假的。** `fake_claude.py` 不调模型，只把一份编好的对话记录画出来；它的界面照 Claude Code 全屏模式的样子画
-   （`❯` 你的话、`⏺` 回复、往上翻时底部的「Jump to bottom」），这正是 claude-trail 认位置要用的特征，所以图上的跳转是真跳。
+   （`❯` 你的话、`⏺` 回复、往上翻时底部的「Jump to bottom」），这正是 statetrail 认位置要用的特征，所以图上的跳转是真跳。
 2. **数据是编的。** 对话、账号、额度百分比都是 fixture。额度读数的时间是「刚刚」，插件 30 分钟内不会去查，演示不碰任何真实账号。
 3. **轨迹是真的。** 插件是 `herdr plugin link` 进隔离 herdr 的真代码：自动打开、列表、跳转、宽窄切换、底部按钮开的 lazygit
    浮窗都是它自己做的。点击是往 herdr 客户端发真实的鼠标序列。

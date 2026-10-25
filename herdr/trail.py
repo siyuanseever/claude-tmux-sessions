@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""claude-trail 的 herdr 适配层：停在 Claude 窗格右边的会话轨迹。
+"""statetrail 的 herdr 适配层：停在 Claude 窗格右边的会话轨迹。
 
     trail.py toggle   插件动作：焦点所在的 Claude 还没有轨迹就开一个，有了就在宽版 / 窄版宽度之间拉
     trail.py auto     事件钩子：tab 里有 Claude 时自动打开
@@ -31,7 +31,7 @@ import theme                                 # noqa: E402
 from core.i18n import set_lang, t as _t     # noqa: E402
 from core.transcript import ClaudeTranscript, reader_for  # noqa: E402,F401  ClaudeTranscript 给测试脚本用
 
-PLUGIN_ID = os.environ.get("HERDR_PLUGIN_ID") or "claude-trail"
+PLUGIN_ID = os.environ.get("HERDR_PLUGIN_ID") or "statetrail"
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or str(Path.home() / ".config" / "herdr" / "herdr.sock")
 STATE = Path(os.environ.get("HERDR_PLUGIN_STATE_DIR")
              or Path.home() / ".local" / "state" / "herdr" / "plugins" / PLUGIN_ID)
@@ -44,7 +44,7 @@ claude.USAGE_DIR = STATE           # 额度读数存在插件自己的状态目�
 MIN_WIDTH = 120                    # Claude 那一格至少这么宽才自动开
 CONFIG_DIR = Path(os.environ.get("HERDR_PLUGIN_CONFIG_DIR")
                   or Path.home() / ".config" / "herdr" / "plugins" / "config" / PLUGIN_ID)
-# 配置（<配置目录>/config.toml，`herdr plugin config-dir claude-trail` 打印这个目录）。文件不存在就全用默认值。
+# 配置（<配置目录>/config.toml，`herdr plugin config-dir statetrail` 打印这个目录）。文件不存在就全用默认值。
 # 这一阶段只开放确有需要的几项：按钮列表、自动打开、默认宽版还是窄版、宽版宽度、图标字体、界面语言。
 DEFAULTS = {
     "auto_open": True,             # 切到有 Claude 的 tab 时自动打开
@@ -211,7 +211,7 @@ def warn_deps(quiet=False):
             pass
         STATE.mkdir(parents=True, exist_ok=True)
         DEPS_WARNED.touch()
-    notify(_t("claude-trail 缺依赖"), "; ".join(f"{m}（{how}）" for m, how in miss))
+    notify(_t("statetrail 缺依赖"), "; ".join(f"{m}（{how}）" for m, how in miss))
     return True
 
 
@@ -644,7 +644,7 @@ class Sidebar:
             self.say(_t("找不到 {p}").format(p=prog))
             return
         cwd = (pane_info(self.target) or {}).get("foreground_cwd") or ""
-        env = {"CLAUDE_TRAIL_CWD": cwd, "CLAUDE_TRAIL_CMD": cmd, "PATH": os.environ.get("PATH", "")}
+        env = {"STATETRAIL_CWD": cwd, "STATETRAIL_CMD": cmd, "PATH": os.environ.get("PATH", "")}
         if prog == "lazygit":                 # 在最外层按 Esc 也退出，和 yazi 一样（叠加在你自己的配置后面）
             mine = Path(sh_out("lazygit", "--print-config-dir").strip() or "/nonexistent") / "config.yml"
             env["LG_CONFIG_FILE"] = ",".join([*([str(mine)] if mine.exists() else []), str(HERE / "tools" / "lazygit.yml")])
@@ -937,9 +937,9 @@ class Sidebar:
 
 
 def cmd_pane():
-    target, me = os.environ.get("CLAUDE_TRAIL_TARGET"), os.environ.get("HERDR_PANE_ID")
+    target, me = os.environ.get("STATETRAIL_TARGET"), os.environ.get("HERDR_PANE_ID")
     if not target or not me:
-        sys.exit("trail.py pane: CLAUDE_TRAIL_TARGET / HERDR_PANE_ID not set")
+        sys.exit("trail.py pane: STATETRAIL_TARGET / HERDR_PANE_ID not set")
     # 窗格一退出就关，报错来不及看：stderr 记到状态目录里
     STATE.mkdir(parents=True, exist_ok=True)
     err = os.open(STATE / "pane.err", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
@@ -954,7 +954,7 @@ def cmd_pane():
         signal.signal(sig, bye)
     miss = missing_deps()
     if miss:                                   # 窗格里直接写出来，停住等你看，别一闪就没了
-        print(_t("claude-trail 缺依赖：") + "\n")
+        print(_t("statetrail 缺依赖：") + "\n")
         for m, how in miss:
             print(f"  • {m}\n    {how}\n")
         print(_t("装好以后关掉这个窗格，再打开一次。"))
@@ -993,7 +993,7 @@ def sidebars():
 
 def open_sidebar(target):
     r = call("plugin.pane.open", plugin_id=PLUGIN_ID, entrypoint="trail", placement="split",
-             target_pane_id=target, direction="right", focus=False, env={"CLAUDE_TRAIL_TARGET": target})
+             target_pane_id=target, direction="right", focus=False, env={"STATETRAIL_TARGET": target})
     pane = r["plugin_pane"]["pane"]["pane_id"]
     # 轨迹进程起来要零点几秒，它写登记之前紧跟着来的第二个事件会以为还没开、再开一个：这里先写上
     RUN.mkdir(parents=True, exist_ok=True)

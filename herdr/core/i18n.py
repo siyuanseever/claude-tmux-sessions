@@ -6,7 +6,7 @@
     from core.i18n import t
     t("等确认")                      → "等确认" / "Waiting"
 
-取语言的顺序：环境变量 CLAUDE_TRAIL_LANG > set_lang()（插件读配置里的 lang 后调）> 系统 locale
+取语言的顺序：环境变量 STATETRAIL_LANG > set_lang()（插件读配置里的 lang 后调）> 系统 locale
 （LC_ALL / LC_MESSAGES / LANG 以 zh 开头就是中文）> en。只认 en / zh。
 """
 import os
@@ -28,14 +28,14 @@ def _from_locale():
     return "en"
 
 
-LANG = _norm(os.environ.get("CLAUDE_TRAIL_LANG")) or _from_locale()
+LANG = _norm(os.environ.get("STATETRAIL_LANG")) or _from_locale()
 _table = None
 
 
 def set_lang(lang):
-    """配置文件里写了 lang 就用它（环境变量 CLAUDE_TRAIL_LANG 还是优先）。"""
+    """配置文件里写了 lang 就用它（环境变量 STATETRAIL_LANG 还是优先）。"""
     global LANG
-    if not os.environ.get("CLAUDE_TRAIL_LANG") and _norm(lang):
+    if not os.environ.get("STATETRAIL_LANG") and _norm(lang):
         LANG = _norm(lang)
 
 

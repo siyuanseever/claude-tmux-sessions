@@ -21,15 +21,15 @@ from .i18n import t as _t
 
 DEFAULT_CFG = Path.home() / ".claude"
 # 额度读数存在哪：插件（适配层）启动时改成它自己的状态目录
-USAGE_DIR = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state") / "claude-trail"
+USAGE_DIR = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state") / "statetrail"
 
 
 # ---- 配置目录、会话、账号 --------------------------------------------------------
 
 def config_dirs():
     """可能的 CLAUDE_CONFIG_DIR：默认的 ~/.claude，加上 ~/.claude-*（一个账号一个目录，比如 ~/.claude-l2）。
-    CLAUDE_TRAIL_CONFIG_DIRS（冒号分隔）可以改。"""
-    env = os.environ.get("CLAUDE_TRAIL_CONFIG_DIRS")
+    STATETRAIL_CONFIG_DIRS（冒号分隔）可以改。"""
+    env = os.environ.get("STATETRAIL_CONFIG_DIRS")
     if env:
         return [Path(os.path.expanduser(d)) for d in env.split(":") if d]
     extra = sorted(d for d in Path.home().glob(".claude-*") if (d / "projects").is_dir())
@@ -186,7 +186,7 @@ def auto_compact_at():
 
 URL = "https://api.anthropic.com/api/oauth/usage"
 WINDOWS = ("five_hour", "seven_day")
-INTERVAL = 60 * int(os.environ.get("CLAUDE_TRAIL_USAGE_REFRESH_MIN") or 30)
+INTERVAL = 60 * int(os.environ.get("STATETRAIL_USAGE_REFRESH_MIN") or 30)
 FORCE_GAP = 20            # 两次手动刷新至少隔多少秒：怎么连点也不会变成一串请求
 
 
@@ -280,7 +280,7 @@ def _fetch(cfg_dir):
     req = urllib.request.Request(URL, headers={
         "Authorization": "Bearer " + tok,
         "anthropic-beta": "oauth-2025-04-20",
-        "User-Agent": "claude-trail",
+        "User-Agent": "statetrail",
     })
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:

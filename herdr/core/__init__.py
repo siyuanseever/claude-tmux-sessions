@@ -1,4 +1,4 @@
-"""claude-trail 的共用核心：和终端复用器无关的部分。
+"""statetrail 的共用核心：和终端复用器无关的部分。
 
     transcript.py   读对话记录、切轮次（每种 agent 一个读取器，现在只有 Claude）
     claude.py       Claude 专属：配置目录、账号、订阅额度、模型和上下文大小

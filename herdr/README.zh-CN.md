@@ -1,4 +1,4 @@
-# claude-trail
+# statetrail
 
 **Claude Code 会话的每一轮，贴在正在运行的 Claude 旁边：点一轮，Claude 就滚到那一轮。**
 
@@ -7,10 +7,10 @@
 
 [English](README.md)
 
-![claude-trail 在 herdr 里：打开、点一轮跳转、拉窄、拉宽、点 Git 按钮](docs/demo.gif)
+![statetrail 在 herdr 里：打开、点一轮跳转、拉窄、拉宽、点 Git 按钮](docs/demo.gif)
 
 claude-code-history-viewer、claude-code-transcripts 这类工具是事后翻看会话的。
-claude-trail 管的是你正在用的这个会话：贴在运行中的 Claude 旁边，跟着它走。
+statetrail 管的是你正在用的这个会话：贴在运行中的 Claude 旁边，跟着它走。
 
 ## 有什么
 
@@ -32,10 +32,10 @@ macOS 自带的 Python 是 3.9，要先装一个新的：
 
 ```bash
 brew install python fzf          # 要默认按钮的话再加 lazygit yazi
-herdr plugin install siyuanseever/<repo>      # 名字还没定
+herdr plugin install siyuanseever/statetrail/herdr
 ```
 
-缺了什么，claude-trail 会说出来（herdr 通知，或者在它的窗格里写出来），不会静默失败。
+缺了什么，statetrail 会说出来（herdr 通知，或者在它的窗格里写出来），不会静默失败。
 
 然后开一个有 Claude Code 的 tab，轨迹会自己在右边打开。想用快捷键切换，在 `~/.config/herdr/config.toml` 里绑上动作，
 再执行 `herdr server reload-config`：
@@ -44,15 +44,15 @@ herdr plugin install siyuanseever/<repo>      # 名字还没定
 [[keys.command]]
 key = "prefix+t"
 type = "plugin_action"
-command = "claude-trail.toggle"
-description = "Claude trail：打开，或在宽版 / 窄版之间切换"
+command = "statetrail.toggle"
+description = "statetrail：打开，或在宽版 / 窄版之间切换"
 ```
 
 Claude Code 要用全屏界面（`/tui fullscreen`），跳转滚的就是它。
 
 ## 配置
 
-`herdr plugin config-dir claude-trail` 打印的目录下的 `config.toml`。每一项都可以不写；文件不存在或写错了就用默认值。
+`herdr plugin config-dir statetrail` 打印的目录下的 `config.toml`。每一项都可以不写；文件不存在或写错了就用默认值。
 
 ```toml
 auto_open = true          # tab 里正好有一个 Claude 时自己打开
@@ -92,7 +92,7 @@ icon = "files"
   最多 30 分钟一次，用的是 Claude Code 存在 macOS 钥匙串（或 `<配置目录>/.credentials.json`）里的 OAuth 令牌。
   令牌只在这一次请求里放在内存中，从不写下来、不打印、不刷新。这个接口不是公开文档里的 API，变了的话柱子就安静地不更新。
 - **发键** 给 Claude 窗格只为滚屏（PageUp / PageDown / Ctrl+Home / Ctrl+End / 滚轮），从不往输入框里打字。
-- 它自己的状态放在插件的状态目录（`~/.local/state/herdr/plugins/claude-trail/`）。
+- 它自己的状态放在插件的状态目录（`~/.local/state/herdr/plugins/statetrail/`）。
 
 ## 已知限制
 

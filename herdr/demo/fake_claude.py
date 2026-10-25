@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """演示用的假 Claude Code：把一份对话记录画成 Claude 全屏界面的样子，能翻页、到顶、到底、滚轮，
-往上翻了就在底部显示「Jump to bottom」——claude-trail 的跳转靠的就是这些，所以演示里的跳转是真跳。
+往上翻了就在底部显示「Jump to bottom」——statetrail 的跳转靠的就是这些，所以演示里的跳转是真跳。
 
     fake_claude.py <对话记录.jsonl> <会话 id>
 

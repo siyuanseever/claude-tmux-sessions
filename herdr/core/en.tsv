@@ -1,10 +1,10 @@
-# claude-trail 英文界面的词表：一行一条，中文原文<TAB>英文。core/i18n.py 读这一份。
+# statetrail 英文界面的词表：一行一条，中文原文<TAB>英文。core/i18n.py 读这一份。
 # 中文原文就是键，要和代码里写的一字不差（含空格、标点、{占位符}）；没有的键在英文界面里原样显示中文。
 # 写短：英文比中文长，而列宽、按钮位置都按显示宽度算。不能有 tab 和换行；空行和 # 开头的行跳过。
 # 最早从 tmux 版 lib/en.tsv 拷来，只留插件用到的条目。
 
-claude-trail 缺依赖	claude-trail: missing dependencies
-claude-trail 缺依赖：	claude-trail is missing dependencies:
+statetrail 缺依赖	statetrail: missing dependencies
+statetrail 缺依赖：	statetrail is missing dependencies:
 fzf 要 {need} 以上，现在是 {have}	fzf {need}+ required, found {have}
 {gone} 轮已压缩 · 当前 {n} 轮	{gone} compacted · {n} current
 {n} 分钟前	{n}m ago
