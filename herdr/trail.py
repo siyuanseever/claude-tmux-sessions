@@ -38,6 +38,8 @@ STATE = Path(os.environ.get("HERDR_PLUGIN_STATE_DIR")
 RUN = STATE / "run"                # <轨迹窗格>.json / .fifo / .sock / .rows
 JUMP_LOG = STATE / "jump.log"      # 每次跳转一行：用了多久、找到没有
 EVENT_LOG = STATE / "events.log"   # 自动打开收到的事件（文档没写 HERDR_PLUGIN_EVENT_JSON 的结构，先记下来）
+TAB_NAMES = STATE / "tab-names.json"   # {tab_id: 我们上次给它起的名字}：label 还是这个，才算「没被你手动改过」
+TAB_NAME_MAX = 24                  # tab 名最多多少列（中文算两格），太长 tab 栏放不下
 claude.USAGE_DIR = STATE           # 额度读数存在插件自己的状态目录
 MIN_WIDTH = 120                    # Claude 那一格至少这么宽才自动开
 CONFIG_DIR = Path(os.environ.get("HERDR_PLUGIN_CONFIG_DIR")
@@ -52,6 +54,7 @@ DEFAULTS = {
     # 或 "text" 全部写成字
     "icons": "nerd",
     "lang": "",                    # "zh" / "en"；不写就按系统 locale
+    "tab_names": True,             # 没手动起过名的 tab，用 Claude 的会话名命名（会话名变了跟着改）
     # 宽版表头第 1 行、窄版底部的按钮：在 Claude 那一格的目录里，用本插件的浮窗跑 command（经 sh -c）。
     # icon 可选：写 ICONS 里的名字（"git"、"files"…）就按 icons 那一档取字形，也可以直接写一个字形
     "buttons": [{"label": "Git", "command": "lazygit", "icon": "git"},
@@ -313,6 +316,7 @@ class Sidebar:
         elif self.no_claude_since is None:    # Claude 退出了（切账号重启那几秒也会这样，所以等一会儿再关）
             self.no_claude_since = time.monotonic()
             self.later(GONE_GRACE + 0.5)
+        self.name_tab(info)
         sid = session_id(info)
         if sid != self.sid:                   # /clear、/resume 换了会话
             self.sid, self.path, self.tr = sid, None, None
@@ -330,6 +334,31 @@ class Sidebar:
 
     def busy(self):
         return self.status in ("working", "blocked")
+
+    def name_tab(self, info):
+        """用 Claude 的会话名（终端标题，Claude 会按话题自己改）给 tab 命名，分不清哪个 tab 是哪个 Claude 时有用。
+
+        只动「没被你手动起过名」的 tab：label 还是 herdr 默认的编号，或者还是我们上次起的那个名字。
+        你手动改过之后两样都不是，就再也不碰它。标题没变就不问 herdr，refresh 里每次调也不多花一个请求。"""
+        title = (info.get("terminal_title_stripped") or "").strip()
+        tab = info.get("tab_id")
+        if not CFG["tab_names"] or not title or not tab or title == getattr(self, "_titled", None):
+            return
+        self._titled = title
+        name = R.clip(title, TAB_NAME_MAX)
+        if name != title:
+            name = R.clip(title, TAB_NAME_MAX - 1) + "…"
+        try:
+            t = call("tab.get", tab_id=tab)["tab"]
+            ours = json.loads(TAB_NAMES.read_text()) if TAB_NAMES.exists() else {}
+            label = t.get("label") or ""
+            if label == name or (label != str(t.get("number")) and label != ours.get(tab)):
+                return
+            call("tab.rename", tab_id=tab, label=name)
+            ours[tab] = name
+            TAB_NAMES.write_text(json.dumps(ours, ensure_ascii=False))
+        except (OSError, ValueError, KeyError, HerdrError):
+            pass
 
     def stops(self):
         return self.tr.visible() if self.tr else []
