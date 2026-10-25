@@ -103,7 +103,9 @@
 | 自定义按钮挪到底部；支持 `action` 调别的插件 | 见第 2 条 | 7efe164 | 见第 2 条 |
 | 给 Claude 留够宽度 | Claude 自带的 `/diff` 面板要终端 ≥110 列（code.claude.com/docs/en/interactive-mode.md「Diff panel」）；宽版封顶到「两格合计 − 110 − 边框」，放不下就开窄版 | a1a57bd | 有 herdr-sidebar 的 tab：Claude 112（tty 110）+ 轨迹 38；没有 herdr-sidebar 的 tab：Claude 120 + 轨迹 62 |
 | 英文界面 | 词表从 tmux 版的 383 行精简到插件用到的 44 条，补齐新文字 | 9c6104e | `CLAUDE_TRAIL_LANG=en` 渲染：「14m ago」「54 turns」「yazi not found」 |
-| 额度自己查，不再依赖 tmux 版的脚本 | 从 `bin/usage-refresh.py` 搬到 `core/claude.py`：钥匙串读令牌只在内存里用、不刷新不写凭据、30 分钟节流、手动 20 秒防连点、同账号文件锁；读数写在插件自己的状态目录 | da4cf73 | 两个账号各强制查一次都拿到读数（1.48 秒 / 0.73 秒），20 秒内再查不发请求 |
+| 按钮开的工具不用 popup | herdr 的 popup 只能居中、是整个会话的模态窗口：盖住 Claude、点外面不关、鼠标退不出来（你报的）。改成开在 Claude 右边，占 Claude 那一块的 60%；焦点离开 0.4 秒后复查就关；lazygit 叠加 `quitOnTopLevelReturn`，和 yazi 一样 Esc / q 都能退；退出后焦点还给 Claude | 1074e5e | 隔离 herdr 里实测：点 Git → Claude 46 + lazygit 69 + 轨迹 59；Esc 退出后焦点回 Claude；点 Claude（外面）关掉；yazi 按 q 退；再点同一按钮关；开着 Git 点文件换成 yazi。代价：herdr 没有不挤别人的浮动窗格，Claude 会暂时变窄、重新换行 |
+| 只显示 herdr 没有的 | 窄版表头删掉 Claude 的状态图标（herdr 左侧 Agents 栏已有）；这条原则记进决定记录 | 1074e5e、1e822fd | 重录的 GIF 窄版那帧第 2 行直接是模型 |
+| 额度自己查，不再依赖 tmux 版的脚本（后来改成选配，默认只读 Claude Code 的缓存，见检查清单） | 从 `bin/usage-refresh.py` 搬到 `core/claude.py`：钥匙串读令牌只在内存里用、不刷新不写凭据、30 分钟节流、手动 20 秒防连点、同账号文件锁；读数写在插件自己的状态目录 | da4cf73 | 两个账号各强制查一次都拿到读数（1.48 秒 / 0.73 秒），20 秒内再查不发请求 |
 
 另外回答过你的一个问题：Claude Code 自带的侧边栏是 `/diff` 面板（内置 mod `cc-plugin-diff`，v2.1.287+）。
 它在终端 ≥144 列、Claude 开始改文件时自动弹出，你关掉后在再次运行 `/diff` 之前一直不弹。
@@ -133,8 +135,7 @@
 
 ## Rust 要不要改写
 
-**我的建议：先用 Python 版发 v0.1，Rust 放到 v0.2，等出现安装方面的反馈再做。**
-这和[决定记录](../decisions/2026-10-25-herdr.md)里早先写的「准备发布时改 Rust + ratatui」不一样，请你定。
+**你已经定了：v0.1 先用 Python 发，v0.2 再看。** 下面是当时给的估算，留作 v0.2 的参考。
 
 | | Python 版（现在） | Rust 改写 |
 |---|---|---|
@@ -153,23 +154,30 @@
 - 先发出去拿到反馈，比先花 3–5 天改写更值。
 - 真要改写时，现在的基准比对和录制装置就是现成的回归测试。
 
-## 发布前检查清单（要你确认的事）
+## 发布前检查清单
 
-1. **定名**（见上面的候选名字）。定了以后我改 manifest、README、状态目录、动作名，重跑基准和录制。
-2. **建新仓库**：放在 `threedaycat` 下，设为 public。搬法二选一：
-   - `git subtree split --prefix=herdr` 保留历史（建议）
-   - 全新 init
-3. **推送和真装一次**：推上去后在干净环境里 `herdr plugin install threedaycat/<名字>`，记录命令和用时；README 里的 `<owner>/<repo>` 换成真名。
-4. **额度查询默认开还是关**：它会读钥匙串里 Claude Code 的令牌，调一个没有公开文档的接口（README 已写明）。
-   - 默认开：开箱就有真实额度
-   - 默认关：只有用户在配置里打开才查；不查时 5h / 7d 柱子没有数据
-   - 我倾向**默认开**，并保留 README 里的说明
-5. **默认图标**：默认 `icons = "nerd"`，没装 Nerd Font 的人会看到方块。可以改成默认 `"unicode"`，你自己的机器配成 nerd。
-   我倾向**默认 unicode**（GIF 里就是这一档）。
-6. **Rust**：照上面的建议，v0.1 用 Python，还是现在就改写。
-7. **打 `herdr-plugin` 标签**进 herdr 的插件市场。
-8. **合进 main**：本分支（`herdr-plugin`）合进 `main` 后用 `git worktree remove` 收掉 worktree。
-   如果新仓库用 subtree split，`herdr/` 在这个仓库里留不留，也要你定。
+你已经定了的（2026-10-25 晚，经主会话转达）：
+
+| 事项 | 决定 | 落实 |
+|---|---|---|
+| 额度查询 | 默认只读 Claude Code 缓存在 `.claude.json` 里的读数，不碰钥匙串；`live_usage = true` 才实时查询 | ec3236d：缓存可能是几天前的，表头写「N 天前」，过了重置时间的窗口画「?」；README 改写 |
+| 默认图标 | 加 `icons = "auto"` 并设为默认：装了 Nerd Font 用 nerd，没装用 unicode | ec3236d：macOS 看 `~/Library/Fonts`、`/Library/Fonts`，Linux 问 `fc-list`；README 写明「装了不代表终端在用它」 |
+| Rust | v0.1 先用 Python 发，v0.2 再看 | 不动 |
+| 新仓库放哪 | `siyuanseever` 下 | README 的安装命令写成 `siyuanseever/<repo>` |
+| 名字 | 还没定：要和「轨迹」相关，不必带 agent | 先不改名，插件 id 仍是 `claude-trail` |
+
+还要你确认的：
+
+1. **定名**。按「和轨迹相关、不必带 agent」，前面的候选里 `herdr-session-trail`、`herdr-waypoints` 符合（GitHub 上都是 0 同名）。
+   `herdr-turns` 偏「轮次」不太像「轨迹」，`herdr-trail` 已被别人占了。
+   定了以后我改 manifest、README、状态目录、动作名 `claude-trail.toggle`，重跑基准和录制。
+2. **建新仓库**：`siyuanseever/<名字>`，public。建议用 `git subtree split --prefix=herdr` 保留历史。
+3. **推送和真装一次**：推上去后在干净环境里 `herdr plugin install siyuanseever/<名字>`，记录命令和用时；README 里的 `<repo>` 换成真名。
+4. **打 `herdr-plugin` 标签**进插件市场。
+5. **合进 main**：本分支合进 `main` 后用 `git worktree remove` 收掉 worktree；用 subtree split 的话，`herdr/` 在这个仓库里留不留也要你定。
+6. **你自己这台的额度**：默认改成读缓存以后，你这里的缓存停在 10 月 9 日（l2 是 10 月 15 日），5h / 7d 现在显示「?」。
+   要像以前一样看实时数字，就在插件配置（`herdr plugin config-dir claude-trail` 那个目录的 `config.toml`）里写 `live_usage = true`。
+   我没替你改。
 
 ## 遗留问题和风险
 
@@ -189,7 +197,7 @@
 
 ## 留下了什么
 
-- 插件以本地链接的方式装着，指向本 worktree 的 `herdr/`。tab 1、tab 2 里各开着一个轨迹，都是最终代码。
+- 插件以本地链接的方式装着，指向本 worktree 的 `herdr/`。tab 1、tab 2 里各开着一个轨迹，都是最终代码（ec3236d）。
 - tab 1 被自动改名成了「Herdr 与 tmux Claude 会…」（tab 名跟会话走的功能）。不想要的话，手动改回去它就不再动。
 - 状态目录 `~/.local/state/herdr/plugins/claude-trail/`：跳转日志、事件日志、`pane.err`、两个账号的额度读数、`tab-names.json`。
 - 测试会话：`2772bc51`、`da151c4d`、`3e1cbb72`，都在 `~/.claude/projects/-private-tmp-claude-502-…-scratchpad-trail-test/`，各约 400KB。三个测试 Claude 都已退出，测试 tab 已关；对话记录留着没删，删不删你定。
