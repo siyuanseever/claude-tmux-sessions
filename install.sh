@@ -4,6 +4,18 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# 界面语言：--lang en|zh 写进 ~/.config/claude-tmux/lang；不给就保留已有的，没有才按系统语言猜（见 lib/i18n.sh）
+want_lang=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --lang) want_lang="${2:-}"; shift; [ $# -gt 0 ] && shift ;;
+    --lang=*) want_lang="${1#--lang=}"; shift ;;
+    *) echo "usage: ./install.sh [--lang en|zh]" >&2; exit 2 ;;
+  esac
+done
+. "$REPO_DIR/lib/i18n.sh"
+ct_lang_setup "$want_lang" || exit 2
 CLAUDE_HOOKS_DIR="$HOME/.claude/hooks"
 SETTINGS_FILE="$HOME/.claude/settings.json"
 
@@ -13,7 +25,7 @@ for bin in tmux fzf python3; do
   command -v "$bin" >/dev/null 2>&1 || missing+=("$bin")
 done
 if [ "${#missing[@]}" -gt 0 ]; then
-  echo "缺少依赖: ${missing[*]}" >&2
+  t "缺少依赖:"; echo "$T ${missing[*]}" >&2
   echo "macOS: brew install ${missing[*]}" >&2
   exit 1
 fi
@@ -96,13 +108,71 @@ PYEOF
 # CLAUDE_TMUX_NO_DAEMON=1 跳过这一步（在临时目录里试装、或者你想自己管常驻进程的时候）。
 if [ "$(uname)" = Darwin ] && [ -z "${CLAUDE_TMUX_NO_DAEMON:-}" ]; then
   echo "==> installing the sidebar daemon (launchd: com.claude-tmux.sidebar)"
-  sh "$REPO_DIR/sidebar/install.sh"
+  bash "$REPO_DIR/sidebar/install.sh"
 fi
 
 if ! command -v terminal-notifier >/dev/null 2>&1; then
-  echo "==> (可选) brew install terminal-notifier — 装了之后点击 blocked 通知能直接跳到那个 pane"
+  t "==> (可选) brew install terminal-notifier — 装了之后点击 blocked 通知能直接跳到那个 pane"; echo "$T"
 fi
 
+# 收尾说明是一整篇，不进词表（en.tsv 一行一条），两种语言各写一份。
+if [ "$CT_LANG" = en ]; then
+cat <<'EOF'
+
+==> Installed. One manual step left (everyone's tmux config is different):
+
+1. Add one line at the end of your tmux config (~/.tmux.conf or ~/.tmux.conf.local) for the keys,
+   mouse and hooks (prefix+g picker, prefix+a jump to what needs you most, status-bar clicks,
+   click outside a popup to close it, focusing a pane marks it read):
+
+    source-file ~/projects/claude-tmux-sessions/tmux/claude-tmux.conf
+
+   (If the repo isn't under ~/projects, use the path you cloned it to.)
+
+2. Add these segments to your status-left / status-right (themes differ, so they're not added for you):
+
+    #(~/.claude/hooks/status-badge.sh states)    session counts per state ⏸ ✔ ▶ ✓, clickable
+    #(~/.claude/hooks/float-tool.sh --buttons)   the sidebar toggle button
+    #(~/.claude/hooks/tmux-sysstat.sh)           machine CPU / memory / swap / disk, clickable
+
+   Then run `tmux source-file ~/.tmux.conf`.
+
+3. To switch accounts with the sidebar's ⇄ button, list your accounts in
+   ~/.config/claude-tmux/accounts.json (format: load_accounts in bin/switch_account.py).
+
+Claude Code sessions that are already running need one /hooks inside them to pick up the hooks
+just written to settings.json.
+
+Interface language: English (~/.config/claude-tmux/lang). `./install.sh --lang zh` switches to
+Chinese; the CLAUDE_TMUX_LANG=en|zh environment variable overrides it.
+
+Optional: show each window's Claude state right in the window list (⏸ waiting for you /
+✔ done, unread / ▶ running / ✓ read), so you can tell which window it is without the picker:
+
+    set -g window-status-format         '#I#{E:@claude_win} #W'
+    set -g window-status-current-format '#I#{E:@claude_win} #W'
+
+With gpakosz/.tmux, set tmux_conf_theme_window_status_format and ..._current_format
+in ~/.tmux.conf.local instead.
+Rendering starts no process: the hooks write the badge into a window option.
+
+If your window names follow Claude's pane title, they already start with Claude's own status glyph
+(✳ idle / ◑◐ spinning), which only tells running from not running. Strip it and keep the richer badge:
+
+    set -g window-status-format '#I#{E:@claude_win} #{s|^[^ -~] ||:window_name}'
+
+Optional: with tmux-resurrect/continuum, add these lines so that after a layout restore each pane
+runs claude --resume back into its own session (sessions you quit normally stay closed);
+sessions in @resurrect-skip-sessions (managed by another program, e.g. services started by launchd)
+are neither saved nor restored, and panes tagged @resurrect_skip (the sidebar from sidebar/) are
+closed after the restore and reopened by the sidebar itself:
+
+    set -g @resurrect-skip-sessions 'my-servers'
+    set -g @resurrect-hook-post-save-layout '~/.claude/hooks/resurrect_hooks.py save-layout'
+    set -g @resurrect-hook-pre-restore-all '~/.claude/hooks/resurrect_hooks.py pre-restore'
+    set -g @resurrect-hook-post-restore-all '~/.claude/hooks/resurrect_hooks.py post-restore'
+EOF
+else
 cat <<'EOF'
 
 ==> 安装完成，还差最后一步（手动，因为每个人的 tmux 配置不一样）：
@@ -152,3 +222,4 @@ claude --resume 回到每个 pane 原来的会话（正常退出的不会被复�
     set -g @resurrect-hook-pre-restore-all '~/.claude/hooks/resurrect_hooks.py pre-restore'
     set -g @resurrect-hook-post-restore-all '~/.claude/hooks/resurrect_hooks.py post-restore'
 EOF
+fi

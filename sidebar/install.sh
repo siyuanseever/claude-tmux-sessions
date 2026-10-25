@@ -1,7 +1,15 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # 装常驻进程（launchd，开机自启、崩了自动拉起）。重复跑没关系，会重新加载。
+#   sidebar/install.sh [--lang en|zh]   界面语言，同 ../install.sh（不给就保留已有的，没有才按系统语言猜）
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
+want_lang=""
+case "${1:-}" in
+  --lang) want_lang="${2:-}" ;;
+  --lang=*) want_lang="${1#--lang=}" ;;
+esac
+. "$HERE/../lib/i18n.sh"
+ct_lang_setup "$want_lang" || exit 2
 PY="$(command -v python3)"
 PL="$HOME/Library/LaunchAgents/com.claude-tmux.sidebar.plist"
 mkdir -p "$HOME/.local/state/claude-trail"
@@ -25,4 +33,4 @@ for _ in 1 2 3 4 5 6 7 8 9 10; do
   sleep 0.5
 done
 launchctl print "gui/$(id -u)/com.claude-tmux.sidebar" >/dev/null
-echo "侧栏常驻进程已装好（$PY $HERE/trail_daemon.py）"
+t "侧栏常驻进程已装好（%s）"; printf "$T\n" "$PY $HERE/trail_daemon.py"

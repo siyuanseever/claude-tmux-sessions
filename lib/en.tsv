@@ -1,0 +1,14 @@
+# 英文界面的词表：一行一条，中文原文<TAB>英文。lib/i18n.py 和 lib/i18n.sh 都读这一份。
+# 中文原文就是键，要和代码里写的一字不差（含空格、标点、{占位符} / %s）；没有的键在英文界面里原样显示中文。
+# 写短：英文比中文长，而列宽、按钮位置都按显示宽度算。状态符号 ⏸ ✔ ▶ ✓ 不翻。
+# 不能有 tab 和换行；空行和 # 开头的行跳过。shell 是逐行读到为止，shell 用的放前面。
+
+# ---- 通用：时长 ------------------------------------------------------------
+{n}秒	{n}s
+{n}分钟	{n}m
+{n}小时	{n}h
+
+# ---- install.sh / sidebar/install.sh -------------------------------------------------
+缺少依赖:	Missing dependencies:
+==> (可选) brew install terminal-notifier — 装了之后点击 blocked 通知能直接跳到那个 pane	==> (optional) brew install terminal-notifier — then clicking a blocked notification jumps straight to that pane
+侧栏常驻进程已装好（%s）	Sidebar daemon installed (%s)
