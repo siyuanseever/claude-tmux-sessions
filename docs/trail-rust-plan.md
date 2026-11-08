@@ -64,3 +64,10 @@ herdr 版的读对话记录、额度、画面、跳转这几块（`transcript.rs
 - herdr 版功能：`~/projects/statetrail-rs/herdr/README.zh-CN.md`（rust 分支，469a3f4）
 - tmux 版功能：`sidebar/README.md`、`sidebar/trail-sidebar.sh:30-38`（fzf 参数：`--no-input`，`enter` `esc` 是 `ignore`）
 - 内存、CPU：2026-11-08 本机 `footprint` 和 `/usr/bin/time -l` 实测；herdr 版的数字见它的 README「怎么做的」一节
+
+## 以后（侧栏 Rust 版稳定之后再说，现在不做）
+
+2026-11-08 用户问其余 tmux 脚本要不要也改 Rust。按「跑得多频繁」排：
+- **值得并进同一个 Rust 程序**：`hooks/tmux_status_update.py`（每次工具调用都起一个 python，约 20 毫秒）、
+  `bin/status-badge.sh`（状态栏每 10 秒一次，内部调 3 处 python，每轮约 0.06 秒 CPU）。做成同一个程序的子命令，启动只要几毫秒。
+- **不用改**：picker、总览、token 报表、切账号这些点了才跑的；`tmux-sysstat.sh` 本来就是纯 shell、很轻。
