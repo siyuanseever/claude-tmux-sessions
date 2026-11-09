@@ -9,6 +9,7 @@
 #   quota        a card with the 5h/7d usage at once, refreshed in place
 #   w%<pane>     jump to that waiting (blocked) Claude
 #   p<n>         jump to Claude in pane %<n> (one dot of @claude_dots)
+#   s<n>         switch to session $<n> (a session name in @claude_dots)
 #   done         picker, just the finished-unread panes, from the right
 #   running      picker, just the running panes
 #   read         picker, just the finished-and-seen panes
@@ -27,6 +28,7 @@ case "$range" in
                   ${config:+--config "$config"} ;;
   w%*)          exec "$BIN_DIR/jump-top.sh" "${range#w}" ;;
   p[0-9]*)      exec "$BIN_DIR/jump-top.sh" "%${range#p}" ;;   # 状态栏一排圆点里的一个（@claude_dots）
+  s[0-9]*)      exec tmux switch-client ${client:+-c "$client"} -t "\$${range#s}" ;;   # 圆点那排里的 session 名
   done|running|read)
     export CLAUDE_TMUX_SESSION="$(tmux display -p -t "$pane" '#{session_name}' 2>/dev/null)" CLAUDE_TMUX_USAGE_FOOTER=0
     # 选中的那一类只有一个 Claude：弹个框只有一行没意义，直接跳过去。

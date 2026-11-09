@@ -985,7 +985,7 @@ def sync_window_badges():
     without SessionEnd, options left behind by an older build)."""
     try:
         panes = subprocess.check_output(
-            ["tmux", "list-panes", "-a", "-F", "#{pane_id}\t#{window_id}\t#{session_name}"],
+            ["tmux", "list-panes", "-a", "-F", "#{pane_id}\t#{window_id}\t#{session_name}\t#{session_id}"],
             stderr=subprocess.DEVNULL, text=True,
         )
         windows = subprocess.check_output(
@@ -999,9 +999,9 @@ def sync_window_badges():
     order = []            # (窗格, session)：tmux 列出来的顺序 = session 按名字、窗口号、窗格号
     for line in panes.splitlines():
         p = line.split("\t")
-        if len(p) == 3:
+        if len(p) == 4:
             win_of[p[0]] = p[1]
-            order.append((p[0], p[2]))
+            order.append((p[0], p[2], p[3]))
 
     try:
         with open(STATUS_FILE) as f:
@@ -1102,19 +1102,20 @@ DOT_COLOURS = {"wait": "#ff5f5f", "done": "#5fff00", "run": "#af8700"}   # 其�
 
 def render_dots(order, states):
     groups = []
-    for pane, sess in order:
+    for pane, sess, sid in order:
         if pane not in states:
             continue
         if not groups or groups[-1][0] != sess:
-            groups.append((sess, []))
+            groups.append((sess, sid, []))
         colour = DOT_COLOURS.get(states[pane], DIM)
-        groups[-1][1].append(f"#[range=user|p{pane[1:]}]#[fg={colour}]●#[norange]")
+        groups[-1][2].append(f"#[range=user|p{pane[1:]}]#[fg={colour}]●#[norange]")
     out = []
-    for sess, dots in groups:
+    for sess, sid, dots in groups:
         name = sess.replace("#", "##")
         cond = sess.replace("#", "##").replace(",", "#,").replace("}", "#}")
         # 条件分支里不能有逗号，所以亮的样式拆成两个 #[]
-        out.append(f"#{{?#{{==:#{{session_name}},{cond}}},#[fg=#e4e4e4]#[bold],#[fg=#8a8a8a]}}{name}#[nobold] "
+        out.append(f"#{{?#{{==:#{{session_name}},{cond}}},#[fg=#e4e4e4]#[bold],#[fg=#8a8a8a]}}"
+                   f"#[range=user|s{sid.lstrip('$')}]{name}#[norange]#[nobold] "
                    + "".join(dots))
     return "  ".join(out) + ("#[default]" if out else "")
 
