@@ -934,7 +934,9 @@ def watched_panes():
     panes = set()
     for line in out.splitlines():
         parts = line.split("\t")
-        if len(parts) == 2 and "focused" in parts[0].split(","):
+        # 控制模式的客户端（Collie 这类远程查看器挂上来的）总是带 focused，不算有人在看
+        flags = parts[0].split(",") if len(parts) == 2 else []
+        if "focused" in flags and "control-mode" not in flags:
             panes.add(parts[1])
     return panes
 
@@ -962,6 +964,18 @@ def mark_watched_read(data):
     with_status_file(apply)
     for p in fresh:
         data[p]["read"] = True
+
+
+def _agents_daemon_alive():
+    try:
+        pid = int(subprocess.check_output(["tmux", "show-option", "-gqv", "@claude_agents_pid"],
+                                          stderr=subprocess.DEVNULL, text=True).strip() or 0)
+        if pid:
+            os.kill(pid, 0)
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def sync_window_badges():
@@ -1004,6 +1018,11 @@ def sync_window_badges():
         return
 
     mark_watched_read(data)
+
+    # statetrail-tmux agents 在跑（它把进程号写在 @claude_agents_pid）：状态栏圆点和窗口徽标都归它画（看屏幕认状态，
+    # 比钩子准），这里不再写，免得两边来回改。
+    if _agents_daemon_alive():
+        return
 
     # 队员不进窗口徽标。队员就住在它 lead 的那个窗口里，不排除的话那一格画的多半是队员的
     # 状态，而不是这个窗口里那个主 Claude 的（用户 2026-09-29：「只展示 team leader 的
