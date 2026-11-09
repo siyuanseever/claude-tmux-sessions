@@ -971,7 +971,7 @@ def sync_window_badges():
     without SessionEnd, options left behind by an older build)."""
     try:
         panes = subprocess.check_output(
-            ["tmux", "list-panes", "-a", "-F", "#{pane_id}\t#{window_id}"],
+            ["tmux", "list-panes", "-a", "-F", "#{pane_id}\t#{window_id}\t#{session_name}"],
             stderr=subprocess.DEVNULL, text=True,
         )
         windows = subprocess.check_output(
@@ -982,10 +982,12 @@ def sync_window_badges():
         return  # no reachable tmux server — nothing to draw on
 
     win_of = {}
+    order = []            # (窗格, session)：tmux 列出来的顺序 = session 按名字、窗口号、窗格号
     for line in panes.splitlines():
         p = line.split("\t")
-        if len(p) == 2:
+        if len(p) == 3:
             win_of[p[0]] = p[1]
+            order.append((p[0], p[2]))
 
     try:
         with open(STATUS_FILE) as f:
@@ -1024,6 +1026,7 @@ def sync_window_badges():
     now = time.time()
     counts = {}
     run_panes = {}
+    states = {}           # 窗格 -> 徽标状态，给状态栏那一排圆点用
     # 画的是有效状态（主 agent + 它的 subagent；领队 + 它的队员），和状态栏计数、
     # picker 同一个来源。队员不单独画，但它在跑/在等时，领队那一格替它说。
     for pane, entry in effective(data, now, snap=_snap, pane_window=win_of).items():
@@ -1031,6 +1034,7 @@ def sync_window_badges():
         if win is None or entry.get("archived") or pane in mate_panes:
             continue
         state = badge_state(entry, now)
+        states[pane] = state
         counts.setdefault(win, {})
         counts[win][state] = counts[win].get(state, 0) + 1
         if state == "run":
@@ -1051,9 +1055,49 @@ def sync_window_badges():
         else:
             cmd += ["set-option", "-wqu", "-t", win, WINDOW_OPTION]
 
+    dots = render_dots(order, states)
+    try:
+        cur = subprocess.check_output(["tmux", "show-option", "-gqv", DOTS_OPTION],
+                                      stderr=subprocess.DEVNULL, text=True).rstrip("\n")
+    except Exception:
+        cur = None
+    if dots != cur:
+        if cmd:
+            cmd.append(";")
+        cmd += ["set-option", "-g", DOTS_OPTION, dots]
+
     if cmd:
         subprocess.run(["tmux"] + cmd, check=False,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+# 状态栏上所有 Claude 一排圆点，照 herdr 侧栏：一个 Claude 一个 ●，颜色就是状态（和窗口徽标同一套颜色），
+# 按 tmux session 分组、组前写 session 名，当前 session 的名字亮。点一个点跳到那个 Claude。
+# 用户 2026-11-09：「herdr里可以用一个圆圈来表示所有的状态，wait，run，read，done都能表示」，
+# 并且要看到所有 session 的，不只当前这个。
+# 钩子每次改状态都重画这个全局选项，状态栏用 #{E:@claude_dots} 直接读，不等 10 秒一次的刷新。
+# 点的 range 名用 p<数字> 不用 %<数字>：选项内容会被当格式再展开一遍，% 会被 strftime 吃掉（见 run_spinner）。
+DOTS_OPTION = "@claude_dots"
+DOT_COLOURS = {"wait": "#ff5f5f", "done": "#5fff00", "run": "#af8700"}   # 其余（read / stale / idle）都是 DIM
+
+
+def render_dots(order, states):
+    groups = []
+    for pane, sess in order:
+        if pane not in states:
+            continue
+        if not groups or groups[-1][0] != sess:
+            groups.append((sess, []))
+        colour = DOT_COLOURS.get(states[pane], DIM)
+        groups[-1][1].append(f"#[range=user|p{pane[1:]}]#[fg={colour}]●#[norange]")
+    out = []
+    for sess, dots in groups:
+        name = sess.replace("#", "##")
+        cond = sess.replace("#", "##").replace(",", "#,").replace("}", "#}")
+        # 条件分支里不能有逗号，所以亮的样式拆成两个 #[]
+        out.append(f"#{{?#{{==:#{{session_name}},{cond}}},#[fg=#e4e4e4]#[bold],#[fg=#8a8a8a]}}{name}#[nobold] "
+                   + "".join(dots))
+    return "  ".join(out) + ("#[default]" if out else "")
 
 
 # What a pane's foreground command looks like once Claude Code has exited

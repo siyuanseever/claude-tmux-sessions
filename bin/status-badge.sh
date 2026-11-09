@@ -52,6 +52,10 @@ if [ "$MODE" != quota ] && [ "$MODE" != done ]; then
   fi
 fi
 
+# sync：只做上面的 prune（顺带重画窗口徽标和那一排圆点 @claude_dots），什么都不打印 ——
+# 状态栏用 #{E:@claude_dots} 显示圆点，这里只当心跳。
+[ "$MODE" = sync ] && exit 0
+
 MODE="$MODE" BIN_DIR="$BIN_DIR" CLAUDE_CFG="$CFG" SCOPE_SESSION="$SCOPE" python3 - "$STATUS_FILE" <<'PYEOF'
 import json, os, sys, subprocess, time, unicodedata
 from datetime import datetime
