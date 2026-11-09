@@ -29,7 +29,6 @@ if [ "${1:-}" = --buttons ]; then
   chip='#[bg=#303030,fg=#d0d0d0]'
   # git / 文件 搬到侧栏表头上了（只跟那个 Claude 有关，2026-10-22 用户：「底部的这个 Git 文件是不是就可以撤销了」），
   # 底栏只留开关侧栏这一个，图标是 Nerd Font 的 cod-layout_sidebar_right（U+EBF4，右边带侧栏的窗口）。
-  printf '%s' "#[range=user|tool:trail]${chip}  #[default]#[norange]"
   # 在「这个」和「上一个」session 之间来回切（双线工作最常见）。点击直接走 tmux 的 switch-client -l，
   # 见 tmux.conf.local 的 MouseDown1Status。只画图标、不写 session 名：写了名字，看着就像「当前 session 叫这个」
   # （2026-10-23 用户原话），而它其实是点了要去的那个。
@@ -37,11 +36,13 @@ if [ "${1:-}" = --buttons ]; then
   # #() 里没有「是哪个客户端」的信息，display -p 取的是最近活动的那个；单客户端（你只有一个 iTerm 窗口）下没问题。
   last=$(tmux display -p '#{client_last_session}' 2>/dev/null)
   swap=$(printf '\356\257\214')   # U+EBCC cod-arrow-swap，写成 UTF-8 字节：macOS 自带 bash 3.2 不认 \u
+  # 顺序：切 session 在前、轨迹在后（2026-11-09 用户：「把 切换session 按钮跟 轨迹按钮 底部tmux上的 换一下位置」）
   if [ -n "$last" ]; then
-    printf '%s' " #[range=user|tool:swap]${chip} ${swap} #[default]#[norange]"
+    printf '%s' "#[range=user|tool:swap]${chip} ${swap} #[default]#[norange]"
   else
-    printf '%s' " #[range=user|tool:swap]#[bg=#303030,fg=#6c6c6c] ${swap} #[default]#[norange]"
+    printf '%s' "#[range=user|tool:swap]#[bg=#303030,fg=#6c6c6c] ${swap} #[default]#[norange]"
   fi
+  printf '%s' " #[range=user|tool:trail]${chip}  #[default]#[norange]"
   exit 0
 fi
 
