@@ -1141,6 +1141,74 @@ def looks_like_claude(cmd, title):
     )
 
 
+def claude_session_ids():
+    """(窗格 → 会话 id, 后台任务 id → 会话 id)，从 Claude 自己写的 <配置目录>/sessions/<进程号>.json 里读：
+    它记着 "tmux": "session:@窗口.%窗格" 和 sessionId，进程退出时文件就删了，所以只有活着的。
+    后台跑的（claude agents 里那些）没有窗格，记的是 jobId，`claude attach <jobId>` 的窗格靠它对上。"""
+    found, jobs = {}, {}
+    home = os.path.expanduser("~")
+    for d in [os.path.join(home, ".claude")] + sorted(
+            os.path.join(home, n) for n in os.listdir(home) if n.startswith(".claude-")):
+        try:
+            names = os.listdir(os.path.join(d, "sessions"))
+        except OSError:
+            continue
+        for n in names:
+            if not n.endswith(".json"):
+                continue
+            f = os.path.join(d, "sessions", n)
+            try:
+                with open(f) as fh:
+                    v = json.load(fh)
+                mt = os.path.getmtime(f)
+            except Exception:
+                continue
+            t, sid = v.get("tmux") or "", v.get("sessionId")
+            if v.get("jobId") and sid:
+                jobs[v["jobId"]] = sid
+            if "." in t and sid:
+                pane = t.rsplit(".", 1)[1]
+                if pane not in found or mt > found[pane][0]:
+                    found[pane] = (mt, sid)
+    return {p: sid for p, (_, sid) in found.items()}, jobs
+
+
+def attached_jobs(panes):
+    """窗格 → 它 `claude attach <jobId>` 连着的后台任务 id。"""
+    try:
+        pp = dict(l.split("\t", 1) for l in subprocess.check_output(
+            ["tmux", "list-panes", "-a", "-F", "#{pane_pid}\t#{pane_id}"],
+            stderr=subprocess.DEVNULL, text=True).splitlines() if "\t" in l)
+        ps = subprocess.check_output(["ps", "-A", "-o", "ppid=,args="], text=True)
+    except Exception:
+        return {}
+    out = {}
+    for line in ps.splitlines():
+        ppid, _, args = line.strip().partition(" ")
+        m = re.match(r"claude attach (\S+)", args.strip())
+        if m and pp.get(ppid) in panes:
+            out[pp[ppid]] = m.group(1)
+    return out
+
+
+def fill_session_ids(data):
+    """补上没有会话 id 的条目。会话 id 本来只在钩子触发时写进来，于是 --resume 回来、还没说过话的 Claude
+    （discover_claude_panes 认出来的那些）一直没有，侧栏、picker 都说「没找到 Claude 会话」——
+    2026-11-09 从 herdr 搬回 tmux 后 22 个里 19 个是这样。只在真有缺的时候才去读 Claude 的会话文件。"""
+    missing = [p for p, e in data.items() if not e.get("session_id")]
+    if not missing:
+        return
+    sids, jobs = claude_session_ids()
+    for p in missing:
+        if sids.get(p):
+            data[p]["session_id"] = sids[p]
+    still = [p for p in missing if not data[p].get("session_id")]
+    if still and jobs:
+        for p, job in attached_jobs(set(still)).items():
+            if jobs.get(job):
+                data[p]["session_id"] = jobs[job]
+
+
 def discover_claude_panes(data, panes):
     """Register live Claude panes nobody ever told us about.
 
@@ -1281,6 +1349,7 @@ def prune():
         # After the sweep, not before: a pane that just died must not be
         # deleted and re-added in the same pass.
         discover_claude_panes(data, panes)
+        fill_session_ids(data)
 
     with_status_file(apply)
     # Only a server we know the file belongs to may become the recorded one;
