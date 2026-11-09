@@ -125,8 +125,10 @@ fi
 if [ "$tool" = trail ]; then
   # 2026-11-09 起轨迹换成 Rust 版（statetrail 仓库的 tmux/，常驻服务 com.statetrail.tmux）；
   # 没装就退回这里的 Python 侧栏。STATETRAIL_TMUX_BIN 可以指到别的位置。
-  rs="${STATETRAIL_TMUX_BIN:-$HOME/projects/statetrail-rs/tmux/bin/statetrail-tmux}"
-  [ -x "$rs" ] && exec "$rs" toggle "$caller"
+  # 两台机器上仓库位置不同：家里是 worktree ~/projects/statetrail-rs，公司那台是 ~/projects/statetrail（就在 rust 分支）。
+  for rs in ${STATETRAIL_TMUX_BIN:-"$HOME/projects/statetrail-rs/tmux/bin/statetrail-tmux" "$HOME/projects/statetrail/tmux/bin/statetrail-tmux"}; do
+    [ -x "$rs" ] && exec "$rs" toggle "$caller"
+  done
   exec "$BIN/../sidebar/trail-sidebar.sh" "$caller"
 fi
 
