@@ -1,5 +1,12 @@
 # 侧栏（sidebar）
 
+> **2026-11-09 起在用的是 Rust 版**：statetrail 仓库的 `tmux/`（本机 `~/projects/statetrail-rs/tmux`，rust 分支），
+> 常驻服务 `com.statetrail.tmux`。这里的 Python 版留着不删，`bin/float-tool.sh` 找不到 Rust 版的程序时退回它。
+> 退回 Python 版：`launchctl bootout gui/$(id -u)/com.statetrail.tmux`；`launchctl enable gui/$(id -u)/com.claude-tmux.sidebar`
+> 再 `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude-tmux.sidebar.plist`；把开着的 Rust 轨迹
+> `respawn-pane` 成 `trail-sidebar.sh --run <Claude 窗格>`（或关掉，Python 常驻进程会重开）；float-tool.sh 里设
+> `STATETRAIL_TMUX_BIN=/nonexistent` 或删掉那两行。窗格标记两版一样，tmux 配置、resurrect 钩子不用动。
+
 > 原来是单独的仓库 claude-trail，2026-10-23 并进来。状态目录还叫 `~/.local/state/claude-trail`（开着的侧栏都往那里写，改名要一起迁）。
 
 tmux 里贴在 Claude Code 窗格右边的多轮对话导航栏，全程用鼠标：每轮一项，

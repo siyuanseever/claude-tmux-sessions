@@ -71,3 +71,10 @@ herdr 版的读对话记录、额度、画面、跳转这几块（`transcript.rs
 - **值得并进同一个 Rust 程序**：`hooks/tmux_status_update.py`（每次工具调用都起一个 python，约 20 毫秒）、
   `bin/status-badge.sh`（状态栏每 10 秒一次，内部调 3 处 python，每轮约 0.06 秒 CPU）。做成同一个程序的子命令，启动只要几毫秒。
 - **不用改**：picker、总览、token 报表、切账号这些点了才跑的；`tmux-sysstat.sh` 本来就是纯 shell、很轻。
+
+## 状态（2026-11-09）
+
+做完并切过去了。代码在 statetrail 仓库 rust 分支（af4e0a8 抽出 core … 6070ee0），README 是 `tmux/README.zh-CN.md`（含实测内存和 CPU）。
+切换：装 `com.statetrail.tmux`、停用（bootout + disable）`com.claude-tmux.sidebar`、开着的 3 个 fzf 侧栏原地 respawn 成 Rust 轨迹、
+`bin/float-tool.sh` 的 `tool:trail` 改调 Rust 版（找不到就退回 Python）。退回办法见 `sidebar/README.md` 开头。
+
