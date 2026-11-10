@@ -64,6 +64,7 @@ LOCK_FILE = LIVE_FILE + ".lock"
 URL = "https://api.anthropic.com/api/oauth/usage"
 INTERVAL = 60 * int(os.environ.get("CLAUDE_TMUX_USAGE_REFRESH_MIN") or 30)
 FORCE_GAP = 20            # seconds between two forced (clicked) refreshes
+REQUEST_LOG = os.path.join(CFG, "tmux-usage-requests.log")  # one line per real request
 WINDOWS = ("five_hour", "seven_day")
 CLIENT = sys.argv[sys.argv.index("--client") + 1] if "--client" in sys.argv else None
 
@@ -118,6 +119,25 @@ def token():
     return o.get("accessToken"), None
 
 
+RATE_LIMITED = {}
+
+
+def log_request(force, result):
+    """One line per attempt past the throttle: when, auto or click, who
+    called (the parent process), and how it ended. It is how to check that one
+    account sends one request per interval however many trails are open."""
+    try:
+        caller = subprocess.run(["ps", "-o", "comm=", "-p", str(os.getppid())],
+                                capture_output=True, text=True).stdout.strip()
+        if os.path.exists(REQUEST_LOG) and os.path.getsize(REQUEST_LOG) > 100_000:
+            os.replace(REQUEST_LOG, REQUEST_LOG + ".1")
+        with open(REQUEST_LOG, "a") as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{'force' if force else 'auto'}"
+                    f"\t{os.path.basename(caller)}\t{result}\n")
+    except Exception:
+        pass
+
+
 def fetch():
     tok, err = token()
     if not tok:
@@ -131,6 +151,15 @@ def fetch():
         with urllib.request.urlopen(req, timeout=15) as resp:
             d = json.load(resp)
     except urllib.error.HTTPError as e:
+        if e.code == 429:
+            # Rate limited. Remember for how long, so nothing — not even a
+            # click — asks again before then (see main).
+            try:
+                wait = int(e.headers.get("Retry-After") or 0)
+            except ValueError:
+                wait = 0
+            RATE_LIMITED["until_ms"] = int(time.time() * 1000) + 1000 * max(wait, INTERVAL)
+            return None, _t("限流")
         return None, _t("查询失败 HTTP {code}").format(code=e.code)
     except Exception as e:
         return None, _t("查询失败（{err}）").format(err=type(e).__name__)
@@ -292,6 +321,14 @@ def main():
         # whatever re-fires it (a stuck click, a menu bug — both happened),
         # it must not turn into a burst that gets the account rate-limited.
         # Within the gap a click still gets its card, with the last reading.
+        # Rate limited: no request at all until the server's wait (at least one
+        # interval) is over — a click included, it would only extend the limit.
+        if now_ms < (live.get("limited_until_ms") or 0):
+            lock.close()
+            if notify:
+                mins = max(1, round((live["limited_until_ms"] - now_ms) / 60_000))
+                show_card(None, None, live, note=_t("被限流，{n} 分钟后再查").format(n=mins)).wait()
+            return
         if force and now_ms - (live.get("attempted_at_ms") or 0) < FORCE_GAP * 1000:
             lock.close()            # not held while the card is up
             if notify:
@@ -309,14 +346,18 @@ def main():
         subprocess.run(["tmux", "refresh-client", "-S"], capture_output=True)
 
         usage, err = fetch()
+        log_request(force, "ok" if usage else err)
         live.pop("refreshing_since_ms", None)
         if usage:
             live.update(usage)
             live["fetched_at_ms"] = int(time.time() * 1000)
             live.pop("error", None)
+            live.pop("limited_until_ms", None)
         else:
             live["error"] = err
             live["error_at_ms"] = int(time.time() * 1000)
+            if RATE_LIMITED:
+                live["limited_until_ms"] = RATE_LIMITED["until_ms"]
         save(live)
 
     subprocess.run(["tmux", "refresh-client", "-S"], capture_output=True)

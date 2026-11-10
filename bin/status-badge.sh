@@ -371,7 +371,8 @@ def refresh_state(best):
     if now_ms - (live.get("refreshing_since_ms") or 0) < 30_000:
         return "#[fg=#ffd700]⟳#[default]"
     if (live.get("error_at_ms") or 0) > (best.get("fetched_at_ms") or 0) \
-            and now_ms - live["error_at_ms"] < 10 * 60_000:
+            and now_ms - live["error_at_ms"] < 10 * 60_000 \
+            and now_ms >= (live.get("limited_until_ms") or 0):   # rate limited is not broken: no ✗
         return "#[fg=#ff8700]✗#[default]"
     return ""
 

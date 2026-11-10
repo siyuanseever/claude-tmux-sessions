@@ -181,6 +181,8 @@ pane 已经不存在了 (%s)	Pane no longer exists (%s)
 凭据格式认不出	Unrecognized credentials format
 令牌已过期，开一次 Claude Code 会自动续上	Token expired; opening Claude Code once renews it
 查询失败 HTTP {code}	Request failed: HTTP {code}
+限流	rate limited
+被限流，{n} 分钟后再查	rate limited; next try in {n} min
 查询失败（{err}）	Request failed ({err})
 已经	0m
 {d} 天 {h} 小时	{d}d {h}h
