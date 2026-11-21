@@ -37,10 +37,14 @@ if [ "${1:-}" = --buttons ]; then
   last=$(tmux display -p '#{client_last_session}' 2>/dev/null)
   swap=$(printf '\356\257\214')   # U+EBCC cod-arrow-swap，写成 UTF-8 字节：macOS 自带 bash 3.2 不认 \u
   # 顺序：切 session 在前、轨迹在后（2026-11-09 用户：「把 切换session 按钮跟 轨迹按钮 底部tmux上的 换一下位置」）
-  if [ -n "$last" ]; then
-    printf '%s' "#[range=user|tool:swap]${chip} ${swap} #[default]#[norange]"
-  else
-    printf '%s' "#[range=user|tool:swap]#[bg=#303030,fg=#6c6c6c] ${swap} #[default]#[norange]"
+  # 2026-11-21 起默认藏起来（用户：「两个 Session 之间来回切换的那个……使用频率很低了，可以先把它隐藏起来」）。
+  # 要回来：tmux set -g @status_swap 1（写进 tmux.conf.local 就一直在）。点击的处理（tool:swap）没删。
+  if [ "$(tmux show -gqv @status_swap 2>/dev/null)" = 1 ]; then
+    if [ -n "$last" ]; then
+      printf '%s' "#[range=user|tool:swap]${chip} ${swap} #[default]#[norange]"
+    else
+      printf '%s' "#[range=user|tool:swap]#[bg=#303030,fg=#6c6c6c] ${swap} #[default]#[norange]"
+    fi
   fi
   printf '%s' " #[range=user|tool:trail]${chip}  #[default]#[norange]"
   exit 0
