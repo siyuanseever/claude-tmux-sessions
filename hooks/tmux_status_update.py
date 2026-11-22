@@ -1369,6 +1369,13 @@ def main():
         return
     mode = sys.argv[1]
 
+    # 脚本里起的 `claude -p` / SDK 会继承它所在窗格的 TMUX_PANE，钩子照样跑，就被当成那个窗格里的 Claude：
+    # 状态来回变，SessionEnd 还把整条删掉，状态栏上那个 session 名闪一下（2026-11-22 research 的信息流
+    # 「回答页」就是这样）。这类会话的入口是 sdk-cli / sdk-ts / sdk-py，交互的是 cli：钩子来的这几种一律不管。
+    if mode in ("running", "done", "notify", "subagent-start", "subagent-stop", "unblock", "clear") \
+            and os.environ.get("CLAUDE_CODE_ENTRYPOINT", "").startswith("sdk"):
+        return
+
     if mode in ("running", "done"):
         stdin_data = {}
         try:
