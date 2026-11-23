@@ -34,6 +34,11 @@ if [ "${1:-}" = --buttons ]; then
   # （2026-10-23 用户原话），而它其实是点了要去的那个。
   # 没有上一个（刚开机、只有一个 session）就画暗的图标，点了什么也不发生。
   # #() 里没有「是哪个客户端」的信息，display -p 取的是最近活动的那个；单客户端（你只有一个 iTerm 窗口）下没问题。
+  # 最前面是 prefix g 那个总览浮窗（statetrail-tmux goto）的按钮，图标是 Nerd Font 的 cod-dashboard（U+EACD）。
+  # 点击在 tmux.conf.local 的 MouseDown1Status 里直接开浮窗（tool:goto），跟 prefix g 同一条命令。
+  # 2026-11-23 用户：「做一个 prefix+g 的鼠标按钮吧，放到底部 tmux 的开头？和 sidebar 一起放在开头」
+  goto=$(printf '\356\253\215')   # U+EACD
+  printf '%s' "#[range=user|tool:goto]${chip} ${goto} #[default]#[norange]"
   last=$(tmux display -p '#{client_last_session}' 2>/dev/null)
   swap=$(printf '\356\257\214')   # U+EBCC cod-arrow-swap，写成 UTF-8 字节：macOS 自带 bash 3.2 不认 \u
   # 顺序：切 session 在前、轨迹在后（2026-11-09 用户：「把 切换session 按钮跟 轨迹按钮 底部tmux上的 换一下位置」）
