@@ -27,6 +27,13 @@ BIN="$(cd "$(dirname "$self")" && pwd)"
 # 写死在 tmux.conf.local 里会被它拆坏；#() 的输出它不碰。
 if [ "${1:-}" = --buttons ]; then
   chip='#[bg=#303030,fg=#d0d0d0]'
+  # `--buttons right`：只画开关侧栏那一个，放在底栏右半边最前面（窗口名的右边）。
+  # 2026-11-23 用户：「把侧边栏底部tmux放右侧吧，放到 windowsname 后面，因为我一般会在右侧找它」
+  if [ "${2:-}" = right ]; then
+    side=$(printf '\356\257\264')   # U+EBF4 cod-layout_sidebar_right
+    printf '%s' "#[range=user|tool:trail]${chip} ${side} #[default]#[norange]"
+    exit 0
+  fi
   # git / 文件 搬到侧栏表头上了（只跟那个 Claude 有关，2026-10-22 用户：「底部的这个 Git 文件是不是就可以撤销了」），
   # 底栏只留开关侧栏这一个，图标是 Nerd Font 的 cod-layout_sidebar_right（U+EBF4，右边带侧栏的窗口）。
   # 在「这个」和「上一个」session 之间来回切（双线工作最常见）。点击直接走 tmux 的 switch-client -l，
@@ -51,7 +58,7 @@ if [ "${1:-}" = --buttons ]; then
       printf '%s' "#[range=user|tool:swap]#[bg=#303030,fg=#6c6c6c] ${swap} #[default]#[norange]"
     fi
   fi
-  printf '%s' " #[range=user|tool:trail]${chip}  #[default]#[norange]"
+  # 侧栏按钮挪到右边了（--buttons right）
   exit 0
 fi
 
